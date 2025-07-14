@@ -23,56 +23,6 @@ class MovieRepositoryImpl @Inject constructor(
         private val TMDB_API_KEY = BuildConfig.TMDB_API_KEY
     }
     
-    override suspend fun getDailyBoxOffice(targetDate: String): Flow<Result<List<MovieWithPoster>>> = flow {
-        try {
-            val response = kobisApi.getDailyBoxOffice(
-                key = KOBIS_API_KEY,
-                targetDt = targetDate
-            )
-            
-            if (response.isSuccessful) {
-                val movies = response.body()?.boxOfficeResult?.dailyBoxOfficeList ?: emptyList()
-                val moviesWithPoster = movies.map { movie ->
-                    val posterUrl = getMoviePoster(movie.movieNm)
-                    MovieWithPoster(
-                        movie = movie,
-                        posterUrl = posterUrl
-                    )
-                }
-                emit(Result.success(moviesWithPoster))
-            } else {
-                emit(Result.failure(Exception("API 호출 실패: ${response.message()}")))
-            }
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }
-    
-    override suspend fun getWeeklyBoxOffice(targetDate: String): Flow<Result<List<MovieWithPoster>>> = flow {
-        try {
-            val response = kobisApi.getWeeklyBoxOffice(
-                key = KOBIS_API_KEY,
-                targetDt = targetDate
-            )
-            
-            if (response.isSuccessful) {
-                val movies = response.body()?.boxOfficeResult?.dailyBoxOfficeList ?: emptyList()
-                val moviesWithPoster = movies.map { movie ->
-                    val posterUrl = getMoviePoster(movie.movieNm)
-                    MovieWithPoster(
-                        movie = movie,
-                        posterUrl = posterUrl
-                    )
-                }
-                emit(Result.success(moviesWithPoster))
-            } else {
-                emit(Result.failure(Exception("API 호출 실패: ${response.message()}")))
-            }
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }
-    
     override suspend fun getMovieDetail(movieCd: String): Flow<Result<MovieDetail>> = flow {
         try {
             val response = kobisApi.getMovieDetail(

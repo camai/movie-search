@@ -47,8 +47,8 @@ fun SearchMovieScreen(
     viewModel: MovieViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var searchQuery by remember { mutableStateOf("") }
     
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
@@ -63,7 +63,7 @@ fun SearchMovieScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("한국 영화 검색") }
+                title = { Text("영화 검색") }
             )
         },
         snackbarHost = {
@@ -76,43 +76,16 @@ fun SearchMovieScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-            // 검색 영역
+            // 검색 영역 (실시간 검색)
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("영화 제목 검색") },
+                onValueChange = { newText ->
+                    viewModel.updateSearchQuery(newText)
+                },
+                label = { Text("영화 검색") },
+                placeholder = { Text("영화 제목을 입력하세요") },
                 modifier = Modifier.fillMaxWidth()
             )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // 버튼들
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = { viewModel.searchMovies(searchQuery) },
-                    modifier = Modifier.weight(1f),
-                    enabled = searchQuery.isNotBlank()
-                ) {
-                    Text("검색")
-                }
-                
-                Button(
-                    onClick = { viewModel.getDailyBoxOffice() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("일일 박스오피스")
-                }
-                
-                Button(
-                    onClick = { viewModel.getWeeklyBoxOffice() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("주간 박스오피스")
-                }
-            }
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -179,12 +152,7 @@ fun MovieCard(
                 ) {
                     Text(
                         text = movie.movieNm,
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "${movie.rank}위",
-                        style = MaterialTheme.typography.labelLarge
+                        style = MaterialTheme.typography.headlineSmall
                     )
                 }
                 
@@ -199,13 +167,6 @@ fun MovieCard(
                     text = "관객수: ${movie.audiCnt}명",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                
-                if (movie.rankInten.isNotBlank()) {
-                    Text(
-                        text = "순위 변화: ${movie.rankInten}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
             }
         }
     }

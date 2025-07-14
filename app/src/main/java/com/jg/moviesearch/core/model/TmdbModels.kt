@@ -18,9 +18,9 @@ data class TmdbMovie(
     @Json(name = "original_title")
     val originalTitle: String,
     @Json(name = "poster_path")
-    val posterPath: String?,
+    val posterPath: String? = null,
     @Json(name = "backdrop_path")
-    val backdropPath: String?,
+    val backdropPath: String? = null,
     @Json(name = "overview")
     val overview: String,
     @Json(name = "release_date")

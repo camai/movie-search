@@ -27,27 +27,27 @@ data class MovieListItem(
     @Json(name = "movieNm")
     val movieNm: String,
     @Json(name = "movieNmEn")
-    val movieNmEn: String?,
+    val movieNmEn: String? = null,
     @Json(name = "prdtYear")
-    val prdtYear: String?,
+    val prdtYear: String? = null,
     @Json(name = "openDt")
-    val openDt: String?,
+    val openDt: String? = null,
     @Json(name = "typeNm")
-    val typeNm: String?,
+    val typeNm: String? = null,
     @Json(name = "prdtStatNm")
-    val prdtStatNm: String?,
+    val prdtStatNm: String? = null,
     @Json(name = "nationAlt")
-    val nationAlt: String?,
+    val nationAlt: String? = null,
     @Json(name = "genreAlt")
-    val genreAlt: String?,
+    val genreAlt: String? = null,
     @Json(name = "repNationNm")
-    val repNationNm: String?,
+    val repNationNm: String? = null,
     @Json(name = "repGenreNm")
-    val repGenreNm: String?,
+    val repGenreNm: String? = null,
     @Json(name = "directors")
-    val directors: List<MovieDirector>?,
+    val directors: List<MovieDirector>? = null,
     @Json(name = "companys")
-    val companys: List<MovieCompany>?
+    val companys: List<MovieCompany>? = null
 )
 
 @JsonClass(generateAdapter = true)
