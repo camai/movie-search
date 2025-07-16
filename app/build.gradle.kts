@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
     kotlin("kapt")
     id("androidx.navigation.safeargs.kotlin")
 }
@@ -65,6 +66,11 @@ android {
     }
 }
 
+// Room 스키마 설정
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -102,7 +108,7 @@ dependencies {
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
-    kapt(libs.room.compiler)
+    ksp(libs.room.compiler)
 
     // Image Loading
     implementation(libs.coil.compose)
