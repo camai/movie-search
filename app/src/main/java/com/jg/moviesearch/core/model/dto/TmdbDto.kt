@@ -1,16 +1,17 @@
-package com.jg.moviesearch.core.model
+package com.jg.moviesearch.core.model.dto
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
+// TMDB 영화 검색 API 응답 DTO
 @JsonClass(generateAdapter = true)
-data class TmdbMovieSearchResponse(
+data class TmdbMovieSearchResponseDto(
     @Json(name = "results")
-    val results: List<TmdbMovie>
+    val results: List<TmdbMovieDto>
 )
 
 @JsonClass(generateAdapter = true)
-data class TmdbMovie(
+data class TmdbMovieDto(
     @Json(name = "id")
     val id: Int,
     @Json(name = "title")
@@ -29,10 +30,4 @@ data class TmdbMovie(
     val voteAverage: Double,
     @Json(name = "vote_count")
     val voteCount: Int
-)
-
-data class MovieWithPoster(
-    val movie: Movie,
-    val posterUrl: String? = null,
-    val backdropUrl: String? = null
 ) 

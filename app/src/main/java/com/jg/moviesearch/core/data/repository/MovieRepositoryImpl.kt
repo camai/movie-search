@@ -1,176 +1,204 @@
 package com.jg.moviesearch.core.data.repository
 
-import com.jg.moviesearch.BuildConfig
-import com.jg.moviesearch.core.data.network.KobisApi
-import com.jg.moviesearch.core.data.network.TmdbApi
-import com.jg.moviesearch.core.domain.repository.MovieRepository
-import com.jg.moviesearch.core.model.Movie
-import com.jg.moviesearch.core.model.MovieDetail
-import com.jg.moviesearch.core.model.MovieWithPoster
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import com.jg.moviesearch.core.data.datasource.network.MovieNetworkSource
+import com.jg.moviesearch.core.domain.repository.MovieRepository
+import com.jg.moviesearch.core.model.MovieResult
+import com.jg.moviesearch.core.model.domain.Movie
+import com.jg.moviesearch.core.model.domain.MovieDetail
+import com.jg.moviesearch.core.model.domain.MovieWithPoster
+import com.jg.moviesearch.core.model.mapper.MovieMapper.toDomainModel
+import com.jg.moviesearch.core.network.api.TmdbApi
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class MovieRepositoryImpl @Inject constructor(
-    private val kobisApi: KobisApi,
-    private val tmdbApi: TmdbApi
+    private val movieNetworkSource: MovieNetworkSource
 ) : MovieRepository {
     
-    companion object {
-        private val KOBIS_API_KEY = BuildConfig.KOBIS_API_KEY
-        private val TMDB_API_KEY = BuildConfig.TMDB_API_KEY
-    }
-    
-    override suspend fun getMovieDetail(movieCd: String): Flow<Result<MovieDetail>> = flow {
+    override fun searchMoviesByName(movieName: String): Flow<MovieResult<List<Movie>>> = flow {
+        emit(MovieResult.Loading)
+        
         try {
-            val response = kobisApi.getMovieDetail(
-                key = KOBIS_API_KEY,
-                movieCd = movieCd
-            )
+            val response = movieNetworkSource.searchMovieList(movieName)
             
             if (response.isSuccessful) {
-                val movieDetail = response.body()?.movieInfoResult?.movieInfo
-                if (movieDetail != null) {
-                    emit(Result.success(movieDetail))
+                val movieListResult = response.body()?.movieListResult
+                val movieItems = movieListResult?.movieList
+                
+                if (movieItems != null && movieItems.isNotEmpty()) {
+                    val domainMovies = ArrayList<Movie>()
+                    for (item in movieItems) {
+                        domainMovies.add(item.toDomainModel())
+                    }
+                    emit(MovieResult.Success(domainMovies))
                 } else {
-                    emit(Result.failure(Exception("영화 정보를 찾을 수 없습니다.")))
+                    emit(MovieResult.Empty)
                 }
             } else {
-                emit(Result.failure(Exception("API 호출 실패: ${response.message()}")))
+                emit(MovieResult.Error(Exception("API 호출 실패: ${response.code()}")))
             }
         } catch (e: Exception) {
-            emit(Result.failure(e))
+            emit(MovieResult.Error(e))
         }
     }
     
-    override suspend fun searchMoviesByName(movieName: String): Flow<Result<List<MovieWithPoster>>> = flow {
+    override fun searchInBoxOffice(movieName: String): Flow<MovieResult<List<Movie>>> = flow {
+        emit(MovieResult.Loading)
+        
         try {
-            // 영화목록조회 API로 직접 검색 (기간 제한 없음)
-            val searchResponse = kobisApi.searchMovieList(
-                key = KOBIS_API_KEY,
-                movieNm = movieName,
-                itemPerPage = 20
-            )
+            val today = LocalDate.now()
+            val yesterday = today.minusDays(1)
+            val dateString = yesterday.toString()
             
-            if (searchResponse.isSuccessful) {
-                val movieListResult = searchResponse.body()?.movieListResult
-                val movieItems = movieListResult?.movieList ?: emptyList()
+            // 수동으로 "-" 제거
+            val searchDate = StringBuilder()
+            var i = 0
+            while (i < dateString.length) {
+                val char = dateString[i]
+                if (char != '-') {
+                    searchDate.append(char)
+                }
+                i++
+            }
+            
+            val response = movieNetworkSource.getDailyBoxOffice(searchDate.toString())
+            
+            if (response.isSuccessful) {
+                val boxOfficeList = response.body()?.boxOfficeResult?.dailyBoxOfficeList
                 
-                if (movieItems.isNotEmpty()) {
-                    // 최신 영화 우선 정렬 (개봉일 기준)
-                    val sortedMovies = movieItems.sortedByDescending { it.openDt ?: "" }
-                    
-                    // MovieListItem을 Movie로 변환
-                    val movies = sortedMovies.map { item ->
-                        convertMovieListItemToMovie(item)
+                if (boxOfficeList != null && boxOfficeList.isNotEmpty()) {
+                    val domainMovies = ArrayList<Movie>()
+                    for (movieDto in boxOfficeList) {
+                        domainMovies.add(movieDto.toDomainModel())
                     }
-                    
-                    val moviesWithPoster = movies.map { movie ->
-                        val posterUrl = getMoviePoster(movie.movieNm)
-                        MovieWithPoster(
-                            movie = movie,
-                            posterUrl = posterUrl
-                        )
-                    }
-                    
-                    emit(Result.success(moviesWithPoster))
+                    emit(MovieResult.Success(domainMovies))
                 } else {
-                    // 영화목록조회에서 결과가 없으면 박스오피스에서 검색
-                    searchInBoxOffice(movieName)?.let { movies ->
-                        val moviesWithPoster = movies.map { movie ->
-                            val posterUrl = getMoviePoster(movie.movieNm)
+                    emit(MovieResult.Empty)
+                }
+            } else {
+                emit(MovieResult.Error(Exception("박스오피스 API 호출 실패: ${response.code()}")))
+            }
+        } catch (e: Exception) {
+            emit(MovieResult.Error(e))
+        }
+    }
+    
+    override fun getMovieDetail(movieCd: String): Flow<MovieResult<MovieDetail>> = flow {
+        emit(MovieResult.Loading)
+        
+        try {
+            val response = movieNetworkSource.getMovieDetail(movieCd)
+            
+            if (response.isSuccessful) {
+                val movieDetailDto = response.body()?.movieInfoResult?.movieInfo
+                if (movieDetailDto != null) {
+                    emit(MovieResult.Success(movieDetailDto.toDomainModel()))
+                } else {
+                    emit(MovieResult.Error(Exception("영화 상세 정보가 없습니다")))
+                }
+            } else {
+                emit(MovieResult.Error(Exception("영화 상세 정보 API 호출 실패: ${response.code()}")))
+            }
+        } catch (e: Exception) {
+            emit(MovieResult.Error(e))
+        }
+    }
+    
+    override fun getMoviePoster(movieTitle: String): Flow<MovieResult<String>> = flow {
+        emit(MovieResult.Loading)
+        
+        try {
+            val response = movieNetworkSource.searchMoviePoster(movieTitle)
+            
+            if (response.isSuccessful) {
+                val results = response.body()?.results
+                if (results != null && results.isNotEmpty()) {
+                    val posterPath = results.get(0).posterPath
+                    if (posterPath != null && posterPath.isNotEmpty()) {
+                        emit(MovieResult.Success("${TmdbApi.IMAGE_BASE_URL}$posterPath"))
+                    } else {
+                        emit(MovieResult.Error(Exception("포스터 이미지가 없습니다")))
+                    }
+                } else {
+                    emit(MovieResult.Error(Exception("포스터 검색 결과가 없습니다")))
+                }
+            } else {
+                emit(MovieResult.Error(Exception("포스터 검색 API 호출 실패: ${response.code()}")))
+            }
+        } catch (e: Exception) {
+            emit(MovieResult.Error(e))
+        }
+    }
+    
+    override fun searchMoviesWithPoster(movieName: String): Flow<MovieResult<List<MovieWithPoster>>> = flow {
+        emit(MovieResult.Loading)
+        
+        try {
+            // 1. 영화 검색
+            val movieResponse = movieNetworkSource.searchMovieList(movieName)
+            
+            if (movieResponse.isSuccessful) {
+                val movieListResult = movieResponse.body()?.movieListResult
+                val movieItems = movieListResult?.movieList
+                
+                if (movieItems != null && movieItems.isNotEmpty()) {
+                    val moviesWithPoster = ArrayList<MovieWithPoster>()
+                    
+                    // 2. 각 영화에 대해 포스터 URL 추가
+                    for (item in movieItems) {
+                        val movie = item.toDomainModel()
+                        
+                        // 포스터 조회 (실패해도 계속 진행)
+                        val posterUrl = try {
+                            val posterResponse = movieNetworkSource.searchMoviePoster(movie.movieNm)
+                            if (posterResponse.isSuccessful) {
+                                val results = posterResponse.body()?.results
+                                if (results != null && results.isNotEmpty()) {
+                                    val posterPath = results.get(0).posterPath
+                                    if (posterPath != null && posterPath.isNotEmpty()) {
+                                        "${TmdbApi.IMAGE_BASE_URL}$posterPath"
+                                    } else null
+                                } else null
+                            } else null
+                        } catch (e: Exception) {
+                            null
+                        }
+                        
+                        moviesWithPoster.add(
                             MovieWithPoster(
                                 movie = movie,
                                 posterUrl = posterUrl
                             )
-                        }
-                        emit(Result.success(moviesWithPoster))
-                    } ?: emit(Result.success(emptyList()))
+                        )
+                    }
+                    
+                    // 3. 개봉일 기준 내림차순 정렬 (최신 순)
+                    val sortedMovies = sortMoviesByOpenDate(moviesWithPoster)
+                    emit(MovieResult.Success(sortedMovies))
+                } else {
+                    emit(MovieResult.Empty)
                 }
             } else {
-                emit(Result.failure(Exception("영화 검색 실패: ${searchResponse.message()}")))
+                emit(MovieResult.Error(Exception("영화 검색 API 호출 실패: ${movieResponse.code()}")))
             }
         } catch (e: Exception) {
-            emit(Result.failure(e))
+            emit(MovieResult.Error(e))
         }
     }
     
-    // MovieListItem을 Movie로 변환
-    private fun convertMovieListItemToMovie(item: Any): Movie {
-        // 임시로 Any 타입으로 받아서 리플렉션으로 처리
-        return Movie(
-            rank = "0",
-            rankInten = "0",
-            rankOldAndNew = "NEW",
-            movieCd = getFieldValue(item, "movieCd") ?: "",
-            movieNm = getFieldValue(item, "movieNm") ?: "",
-            openDt = getFieldValue(item, "openDt") ?: "",
-            salesAmt = "0",
-            salesShare = "0.0",
-            salesInten = "0",
-            salesChange = "0",
-            salesAcc = "0",
-            audiCnt = "0",
-            audiInten = "0",
-            audiChange = "0",
-            audiAcc = "0",
-            scrnCnt = "0",
-            showCnt = "0"
-        )
-    }
-    
-    // 리플렉션으로 필드 값 가져오기
-    private fun getFieldValue(obj: Any, fieldName: String): String? {
-        return try {
-            val field = obj.javaClass.getDeclaredField(fieldName)
-            field.isAccessible = true
-            field.get(obj)?.toString()
-        } catch (e: Exception) {
-            null
+    private fun sortMoviesByOpenDate(movies: List<MovieWithPoster>): List<MovieWithPoster> {
+        val sortedMovies = ArrayList(movies)
+        // 개봉일 기준 내림차순 정렬 (최신 순)
+        sortedMovies.sortWith { a, b ->
+            val dateA = a.movie.openDt
+            val dateB = b.movie.openDt
+            dateB.compareTo(dateA)
         }
-    }
-    
-    // 박스오피스에서 검색하는 백업 메소드
-    private suspend fun searchInBoxOffice(movieName: String): List<Movie>? {
-        return try {
-            val today = java.time.LocalDate.now()
-            val searchDate = today.minusDays(1).toString().replace("-", "")
-            
-            val response = kobisApi.getDailyBoxOffice(
-                key = KOBIS_API_KEY,
-                targetDt = searchDate,
-                itemPerPage = 10
-            )
-            
-            if (response.isSuccessful) {
-                response.body()?.boxOfficeResult?.dailyBoxOfficeList
-                    ?.filter { it.movieNm.contains(movieName, ignoreCase = true) }
-            } else null
-        } catch (e: Exception) {
-            null
-        }
-    }
-    
-    override suspend fun getMoviePoster(movieTitle: String): String? {
-        return try {
-            val response = tmdbApi.searchMovie(
-                apiKey = TMDB_API_KEY,
-                query = movieTitle
-            )
-            
-            if (response.isSuccessful) {
-                val results = response.body()?.results
-                if (!results.isNullOrEmpty()) {
-                    val posterPath = results.first().posterPath
-                    if (!posterPath.isNullOrEmpty()) {
-                        "${TmdbApi.IMAGE_BASE_URL}$posterPath"
-                    } else null
-                } else null
-            } else null
-        } catch (e: Exception) {
-            null
-        }
+        return sortedMovies
     }
 } 

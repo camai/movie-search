@@ -1,22 +1,25 @@
-package com.jg.moviesearch.core.data.di
+package com.jg.moviesearch.core.network.di
 
-import com.jg.moviesearch.core.data.network.KobisApi
-import com.jg.moviesearch.core.data.network.TmdbApi
-import com.jg.moviesearch.core.data.repository.MovieRepositoryImpl
-import com.jg.moviesearch.core.domain.repository.MovieRepository
+import android.content.Context
+import com.jg.moviesearch.core.data.cache.CacheInterceptor
+import com.jg.moviesearch.core.network.api.KobisApi
+import com.jg.moviesearch.core.network.api.TmdbApi
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
+import java.io.File
 import java.util.concurrent.TimeUnit
-import javax.inject.Singleton
 import javax.inject.Qualifier
+import javax.inject.Singleton
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -40,11 +43,30 @@ object NetworkModule {
     
     @Provides
     @Singleton
+    fun provideCacheInterceptor(): CacheInterceptor {
+        return CacheInterceptor()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideHttpCache(@ApplicationContext context: Context): Cache {
+        val cacheSize = 50 * 1024 * 1024L // 50MB
+        val cacheDir = File(context.cacheDir, "http_cache")
+        return Cache(cacheDir, cacheSize)
+    }
+    
+    @Provides
+    @Singleton
     fun provideOkHttpClient(
-        loggingInterceptor: HttpLoggingInterceptor
+        @ApplicationContext context: Context,
+        loggingInterceptor: HttpLoggingInterceptor,
+        cacheInterceptor: CacheInterceptor,
+        cache: Cache
     ): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
+            .addNetworkInterceptor(cacheInterceptor) // 캐시 헤더 추가
+            .cache(cache) // HTTP 캐시 설정
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
@@ -99,12 +121,5 @@ object NetworkModule {
         return retrofit.create(TmdbApi::class.java)
     }
     
-    @Provides
-    @Singleton
-    fun provideMovieRepository(
-        kobisApi: KobisApi,
-        tmdbApi: TmdbApi
-    ): MovieRepository {
-        return MovieRepositoryImpl(kobisApi, tmdbApi)
-    }
+
 } 

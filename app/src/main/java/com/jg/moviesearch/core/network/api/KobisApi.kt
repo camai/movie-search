@@ -1,8 +1,8 @@
-package com.jg.moviesearch.core.data.network
+package com.jg.moviesearch.core.network.api
 
-import com.jg.moviesearch.core.model.BoxOfficeResponse
-import com.jg.moviesearch.core.model.MovieDetailResponse
-import com.jg.moviesearch.core.model.MovieListResponse
+import com.jg.moviesearch.core.model.dto.BoxOfficeResponseDto
+import com.jg.moviesearch.core.model.dto.MovieDetailResponseDto
+import com.jg.moviesearch.core.model.dto.MovieListResponseDto
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Query
@@ -16,13 +16,13 @@ interface KobisApi {
         @Query("itemPerPage") itemPerPage: Int = 10,
         @Query("multiMovieYn") multiMovieYn: String = "N",
         @Query("repNationCd") repNationCd: String = "K"
-    ): Response<BoxOfficeResponse>
+    ): Response<BoxOfficeResponseDto>
     
     @GET("movie/searchMovieInfo.json")
     suspend fun getMovieDetail(
         @Query("key") key: String,
         @Query("movieCd") movieCd: String
-    ): Response<MovieDetailResponse>
+    ): Response<MovieDetailResponseDto>
     
     @GET("boxoffice/searchWeeklyBoxOfficeList.json")
     suspend fun getWeeklyBoxOffice(
@@ -32,7 +32,7 @@ interface KobisApi {
         @Query("itemPerPage") itemPerPage: Int = 10,
         @Query("multiMovieYn") multiMovieYn: String = "N",
         @Query("repNationCd") repNationCd: String = "K"
-    ): Response<BoxOfficeResponse>
+    ): Response<BoxOfficeResponseDto>
     
     @GET("movie/searchMovieList.json")
     suspend fun searchMovieList(
@@ -41,7 +41,7 @@ interface KobisApi {
         @Query("itemPerPage") itemPerPage: Int = 50,
         @Query("openStartDt") openStartDt: String = "1980",
         @Query("openEndDt") openEndDt: String = ""
-    ): Response<MovieListResponse>
+    ): Response<MovieListResponseDto>
     
     companion object {
         const val BASE_URL = "https://www.kobis.or.kr/kobisopenapi/webservice/rest/"

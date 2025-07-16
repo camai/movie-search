@@ -2,34 +2,32 @@ package com.jg.moviesearch.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jg.moviesearch.core.domain.repository.MovieRepository
-import com.jg.moviesearch.core.model.Movie
-import com.jg.moviesearch.core.model.MovieDetail
-import com.jg.moviesearch.core.model.MovieWithPoster
-import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import java.time.LocalDate
+import com.jg.moviesearch.core.domain.usecase.GetSearchMovieUseCase
+import com.jg.moviesearch.core.domain.usecase.GetMovieDetailUseCase
+import com.jg.moviesearch.core.model.MovieResult
+import com.jg.moviesearch.core.model.domain.MovieDetail
+import com.jg.moviesearch.core.model.domain.MovieWithPoster
+import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class MovieViewModel @Inject constructor(
-    private val movieRepository: MovieRepository
+    private val getSearchMovieUseCase: GetSearchMovieUseCase,
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(MovieUiState())
     val uiState: StateFlow<MovieUiState> = _uiState.asStateFlow()
-    
-    private val _movieDetail = MutableStateFlow<MovieDetail?>(null)
-    val movieDetail: StateFlow<MovieDetail?> = _movieDetail.asStateFlow()
-    
+
     // 실시간 검색을 위한 검색어 StateFlow
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -37,50 +35,57 @@ class MovieViewModel @Inject constructor(
     init {
         setupRealTimeSearch()
     }
-
-    fun getMovieDetail(movieCd: String) {
-        viewModelScope.launch {
-            movieRepository.getMovieDetail(movieCd).collect { result ->
-                result.onSuccess { detail ->
-                    _movieDetail.value = detail
-                }.onFailure { exception ->
-                    _uiState.value = _uiState.value.copy(
-                        error = exception.message
-                    )
-                }
-            }
-        }
-    }
     
     // 실시간 검색 설정
     private fun setupRealTimeSearch() {
-        viewModelScope.launch {
-            _searchQuery
-                .debounce(300) // 300ms 대기
-                .distinctUntilChanged() // 동일한 검색어 중복 제거
-                .filter { it.trim().length >= 2 } // 최소 2글자 이상
-                .flatMapLatest { query ->
-                    if (query.isBlank()) {
-                        flowOf(Result.success(emptyList()))
-                    } else {
-                        movieRepository.searchMoviesByName(query.trim())
-                    }
+        _searchQuery
+            .debounce(300) // 300ms 대기
+            .distinctUntilChanged() // 동일한 검색어 중복 제거
+            .filter { it.trim().length >= 2 } // 최소 2글자 이상
+            .onEach { query ->
+                if (query.isBlank()) {
+                    _uiState.value = _uiState.value.copy(
+                        movies = emptyList(),
+                        isLoading = false,
+                        error = null
+                    )
+                } else {
+                    searchMoviesInternal(query.trim())
                 }
-                .collect { result ->
-                    result.onSuccess { movies ->
+            }
+            .launchIn(viewModelScope)
+    }
+    
+    private fun searchMoviesInternal(query: String) {
+        getSearchMovieUseCase(query)
+            .onEach { result ->
+                when (result) {
+                    is MovieResult.Loading -> {
+                        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+                    }
+                    is MovieResult.Success -> {
                         _uiState.value = _uiState.value.copy(
-                            movies = movies,
+                            movies = result.data,
                             isLoading = false,
                             error = null
                         )
-                    }.onFailure { exception ->
+                    }
+                    is MovieResult.Error -> {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            error = exception.message
+                            error = "영화 검색 실패: ${result.message}"
+                        )
+                    }
+                    is MovieResult.Empty -> {
+                        _uiState.value = _uiState.value.copy(
+                            movies = emptyList(),
+                            isLoading = false,
+                            error = "검색 결과가 없습니다"
                         )
                     }
                 }
-        }
+            }
+            .launchIn(viewModelScope)
     }
     
     // 검색어 업데이트 (UI에서 호출)
@@ -104,14 +109,6 @@ class MovieViewModel @Inject constructor(
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
-    }
-    
-    private fun getYesterday(): String {
-        return LocalDate.now().minusDays(1).toString().replace("-", "")
-    }
-    
-    private fun getLastWeek(): String {
-        return LocalDate.now().minusWeeks(1).toString().replace("-", "")
     }
 }
 

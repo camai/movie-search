@@ -1,6 +1,6 @@
-package com.jg.moviesearch.core.data.network
+package com.jg.moviesearch.core.network.api
 
-import com.jg.moviesearch.core.model.TmdbMovieSearchResponse
+import com.jg.moviesearch.core.model.dto.TmdbMovieSearchResponseDto
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Query
@@ -13,7 +13,7 @@ interface TmdbApi {
         @Query("query") query: String,
         @Query("language") language: String = "ko-KR",
         @Query("page") page: Int = 1
-    ): Response<TmdbMovieSearchResponse>
+    ): Response<TmdbMovieSearchResponseDto>
     
     companion object {
         const val BASE_URL = "https://api.themoviedb.org/3/"
