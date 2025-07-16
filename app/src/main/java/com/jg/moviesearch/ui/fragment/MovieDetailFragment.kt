@@ -134,6 +134,8 @@ class MovieDetailFragment : Fragment() {
                     placeholder(R.drawable.ic_launcher_background)
                     error(R.drawable.ic_launcher_background)
                 }
+            } ?: run {
+                ivMoviePoster.visibility = View.GONE
             }
             
             // 기본 정보

@@ -23,11 +23,12 @@ class MovieNetworkSourceImpl @Inject constructor(
     }
 
     // 영화 검색
-    override suspend fun searchMovieList(movieName: String): Response<MovieListResponseDto> {
+    override suspend fun searchMovieList(movieName: String, page: Int): Response<MovieListResponseDto> {
         return kobisApi.searchMovieList(
             key = KOBIS_API_KEY,
             movieNm = movieName,
-            itemPerPage = 10
+            itemPerPage = 10,
+            curPage = page
         )
     }
 

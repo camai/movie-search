@@ -93,12 +93,12 @@ class MovieRepositoryImpl @Inject constructor(
         }
     }
     
-    override fun searchMoviesWithPoster(movieName: String): Flow<MovieResult<List<MovieWithPoster>>> = flow {
+    override fun searchMoviesWithPoster(movieName: String, page: Int): Flow<MovieResult<List<MovieWithPoster>>> = flow {
         emit(MovieResult.Loading)
         
         try {
             // 1. 영화 검색
-            val movieResponse = movieNetworkSource.searchMovieList(movieName)
+            val movieResponse = movieNetworkSource.searchMovieList(movieName, page)
             
             if (movieResponse.isSuccessful) {
                 val movieListResult = movieResponse.body()?.movieListResult

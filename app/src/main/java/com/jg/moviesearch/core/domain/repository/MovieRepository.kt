@@ -17,5 +17,5 @@ interface MovieRepository {
     fun getMoviePoster(movieTitle: String): Flow<MovieResult<String>>
     
     // 포스터와 함께 영화 검색 - Flow<MovieResult<List<MovieWithPoster>>> 반환
-    fun searchMoviesWithPoster(movieName: String): Flow<MovieResult<List<MovieWithPoster>>>
+    fun searchMoviesWithPoster(movieName: String, page: Int = 1): Flow<MovieResult<List<MovieWithPoster>>>
 } 
