@@ -15,7 +15,6 @@ import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton
 class MovieRepositoryImpl @Inject constructor(
     private val movieNetworkSource: MovieNetworkSource
 ) : MovieRepository {
@@ -41,47 +40,6 @@ class MovieRepositoryImpl @Inject constructor(
                 }
             } else {
                 emit(MovieResult.Error(Exception("API 호출 실패: ${response.code()}")))
-            }
-        } catch (e: Exception) {
-            emit(MovieResult.Error(e))
-        }
-    }
-    
-    override fun searchInBoxOffice(movieName: String): Flow<MovieResult<List<Movie>>> = flow {
-        emit(MovieResult.Loading)
-        
-        try {
-            val today = LocalDate.now()
-            val yesterday = today.minusDays(1)
-            val dateString = yesterday.toString()
-            
-            // 수동으로 "-" 제거
-            val searchDate = StringBuilder()
-            var i = 0
-            while (i < dateString.length) {
-                val char = dateString[i]
-                if (char != '-') {
-                    searchDate.append(char)
-                }
-                i++
-            }
-            
-            val response = movieNetworkSource.getDailyBoxOffice(searchDate.toString())
-            
-            if (response.isSuccessful) {
-                val boxOfficeList = response.body()?.boxOfficeResult?.dailyBoxOfficeList
-                
-                if (boxOfficeList != null && boxOfficeList.isNotEmpty()) {
-                    val domainMovies = ArrayList<Movie>()
-                    for (movieDto in boxOfficeList) {
-                        domainMovies.add(movieDto.toDomainModel())
-                    }
-                    emit(MovieResult.Success(domainMovies))
-                } else {
-                    emit(MovieResult.Empty)
-                }
-            } else {
-                emit(MovieResult.Error(Exception("박스오피스 API 호출 실패: ${response.code()}")))
             }
         } catch (e: Exception) {
             emit(MovieResult.Error(e))

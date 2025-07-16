@@ -2,7 +2,6 @@ package com.jg.moviesearch.core.model
 
 /**
  * 영화 검색 API 결과를 나타내는 sealed class
- * Flow 기반 Clean Architecture에서 사용
  */
 sealed class MovieResult<out T> {
     /**

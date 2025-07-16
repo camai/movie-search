@@ -9,8 +9,7 @@ import retrofit2.Response
 interface MovieNetworkSource {
     // 영화 검색 관련 - 순수한 API 호출만
     suspend fun searchMovieList(movieName: String): Response<MovieListResponseDto>
-    suspend fun getDailyBoxOffice(targetDate: String): Response<BoxOfficeResponseDto>
-    
+
     // 영화 상세 정보 관련 - 순수한 API 호출만
     suspend fun getMovieDetail(movieCd: String): Response<MovieDetailResponseDto>
     

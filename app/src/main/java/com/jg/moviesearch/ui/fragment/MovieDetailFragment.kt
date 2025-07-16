@@ -74,12 +74,18 @@ class MovieDetailFragment : Fragment() {
             // Fragment 백스택에서 제거하여 이전 화면으로 돌아가기
             parentFragmentManager.popBackStack()
         }
+        
+        binding.btnFavorite.setOnClickListener {
+            // 즐겨찾기 토글
+            viewModel.toggleFavorite(movieCd, movieTitle, posterUrl)
+        }
     }
     
     private fun observeViewModel() {
         viewModel.uiState.observe(viewLifecycleOwner, Observer { uiState ->
             handleLoadingState(uiState.isLoading)
             handleErrorState(uiState.error)
+            handleFavoriteState(uiState.isFavorite)
             uiState.movieDetail?.let { movieDetail ->
                 displayMovieDetail(movieDetail)
             }
@@ -89,6 +95,7 @@ class MovieDetailFragment : Fragment() {
     private fun loadMovieDetail() {
         if (movieCd.isNotEmpty()) {
             viewModel.getMovieDetail(movieCd)
+            viewModel.observeFavoriteStatus(movieCd)
         } else {
             Toast.makeText(context, "영화 정보가 없습니다", Toast.LENGTH_SHORT).show()
             parentFragmentManager.popBackStack()
@@ -108,6 +115,14 @@ class MovieDetailFragment : Fragment() {
         } else {
             binding.tvErrorMessage.visibility = View.GONE
             showAllViews()
+        }
+    }
+    
+    private fun handleFavoriteState(isFavorite: Boolean) {
+        if (isFavorite) {
+            binding.btnFavorite.setImageResource(android.R.drawable.star_big_on)
+        } else {
+            binding.btnFavorite.setImageResource(android.R.drawable.star_big_off)
         }
     }
     

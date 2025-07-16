@@ -12,7 +12,6 @@ import retrofit2.Response
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton
 class MovieNetworkSourceImpl @Inject constructor(
     private val kobisApi: KobisApi,
     private val tmdbApi: TmdbApi
@@ -28,14 +27,6 @@ class MovieNetworkSourceImpl @Inject constructor(
         return kobisApi.searchMovieList(
             key = KOBIS_API_KEY,
             movieNm = movieName,
-            itemPerPage = 10
-        )
-    }
-
-    override suspend fun getDailyBoxOffice(targetDate: String): Response<BoxOfficeResponseDto> {
-        return kobisApi.getDailyBoxOffice(
-            key = KOBIS_API_KEY,
-            targetDt = targetDate,
             itemPerPage = 10
         )
     }

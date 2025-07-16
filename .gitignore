@@ -16,3 +16,7 @@ local.properties
 
 # API Keys - 보안을 위해 제외
 app/src/main/java/com/jg/moviesearch/core/data/repository/ApiKeys.kt
+
+# Room 스키마 폴더 (자동 생성)
+/schemas/
+app/schemas/
