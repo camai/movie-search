@@ -102,11 +102,6 @@ class MovieViewModel @Inject constructor(
         }
     }
     
-    // 즉시 검색 (기존 방식 유지)
-    fun searchMovies(query: String) {
-        updateSearchQuery(query)
-    }
-    
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
