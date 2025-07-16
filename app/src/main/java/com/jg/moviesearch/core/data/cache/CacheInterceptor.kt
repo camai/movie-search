@@ -34,10 +34,6 @@ class CacheInterceptor : Interceptor {
             request.url.host.contains("tmdb") -> 
                 "public, max-age=$CACHE_DURATION_HOURS"
             
-            // 박스오피스 - 5분 캐시
-            request.url.encodedPath.contains("BoxOffice") -> 
-                "public, max-age=$CACHE_DURATION_MINUTES"
-            
             // 기본값 - 5분 캐시
             else -> "public, max-age=$CACHE_DURATION_MINUTES"
         }
