@@ -10,9 +10,6 @@ interface MovieRepository {
     // 영화 목록 조회 - Flow<MovieResult<List<Movie>>> 반환
     fun searchMoviesByName(movieName: String): Flow<MovieResult<List<Movie>>>
     
-    // 박스오피스 검색 - Flow<MovieResult<List<Movie>>> 반환
-    fun searchInBoxOffice(movieName: String): Flow<MovieResult<List<Movie>>>
-    
     // 영화 상세 정보 조회 - Flow<MovieResult<MovieDetail>> 반환
     fun getMovieDetail(movieCd: String): Flow<MovieResult<MovieDetail>>
     

@@ -5,15 +5,24 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import com.jg.moviesearch.core.domain.usecase.GetMovieDetailUseCase
+import com.jg.moviesearch.core.domain.usecase.AddFavoriteMovieUseCase
+import com.jg.moviesearch.core.domain.usecase.RemoveFavoriteMovieUseCase
+import com.jg.moviesearch.core.domain.usecase.GetFavoriteMovieStatusUseCase
 import com.jg.moviesearch.core.model.MovieResult
 import com.jg.moviesearch.core.model.domain.MovieDetail
+import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class MovieDetailViewModel @Inject constructor(
-    private val getMovieDetailUseCase: GetMovieDetailUseCase
+    private val getMovieDetailUseCase: GetMovieDetailUseCase,
+    private val addFavoriteMovieUseCase: AddFavoriteMovieUseCase,
+    private val removeFavoriteMovieUseCase: RemoveFavoriteMovieUseCase,
+    private val getFavoriteMovieStatusUseCase: GetFavoriteMovieStatusUseCase
 ) : ViewModel() {
     
     private val _uiState = MutableLiveData(MovieDetailUiState())
@@ -68,14 +77,59 @@ class MovieDetailViewModel @Inject constructor(
         }
     }
     
-    // 에러 클리어
-    fun clearError() {
-        _uiState.value = _uiState.value?.copy(error = null)
+    // 즐겨찾기 관련 기능 추가
+    fun observeFavoriteStatus(movieCd: String) {
+        getFavoriteMovieStatusUseCase(movieCd)
+            .onEach { isFavorite ->
+                _uiState.value = _uiState.value?.copy(isFavorite = isFavorite)
+            }
+            .launchIn(viewModelScope)
+    }
+    
+    fun toggleFavorite(movieCd: String, movieTitle: String, posterUrl: String?) {
+        viewModelScope.launch {
+            try {
+                val currentState = _uiState.value?.isFavorite ?: false
+                
+                if (currentState) {
+                    // 현재 즐겨찾기 상태라면 제거
+                    removeFavoriteMovieUseCase(movieCd)
+                } else {
+                    // 현재 즐겨찾기가 아니라면 추가
+                    val movieWithPoster = MovieWithPoster(
+                        movie = com.jg.moviesearch.core.model.domain.Movie(
+                            rank = "0",
+                            rankInten = "0",
+                            rankOldAndNew = "NEW",
+                            movieCd = movieCd,
+                            movieNm = movieTitle,
+                            openDt = "",
+                            salesAmt = "0",
+                            salesShare = "0.0",
+                            salesInten = "0",
+                            salesChange = "0",
+                            salesAcc = "0",
+                            audiCnt = "0",
+                            audiInten = "0",
+                            audiChange = "0",
+                            audiAcc = "0",
+                            scrnCnt = "0",
+                            showCnt = "0"
+                        ),
+                        posterUrl = posterUrl
+                    )
+                    addFavoriteMovieUseCase(movieWithPoster)
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value?.copy(error = "즐겨찾기 처리 중 오류가 발생했습니다: ${e.message}")
+            }
+        }
     }
 }
 
 data class MovieDetailUiState(
     val movieDetail: MovieDetail? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isFavorite: Boolean = false
 ) 
