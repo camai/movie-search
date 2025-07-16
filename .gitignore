@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# API Keys - 보안을 위해 제외
+app/src/main/java/com/jg/moviesearch/core/data/repository/ApiKeys.kt

@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
     kotlin("kapt")
     id("androidx.navigation.safeargs.kotlin")
 }
@@ -19,6 +20,24 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // API Keys from local.properties
+        val localPropertiesFile = rootProject.file("local.properties")
+        var kobisApiKey = ""
+        var tmdbApiKey = ""
+        
+        if (localPropertiesFile.exists()) {
+            val properties = localPropertiesFile.readText()
+            kobisApiKey = properties.lines()
+                .find { it.startsWith("KOBIS_API_KEY=") }
+                ?.substringAfter("=") ?: ""
+            tmdbApiKey = properties.lines()
+                .find { it.startsWith("TMDB_API_KEY=") }
+                ?.substringAfter("=") ?: ""
+        }
+        
+        buildConfigField("String", "KOBIS_API_KEY", "\"$kobisApiKey\"")
+        buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
     }
 
     buildTypes {
@@ -31,16 +50,18 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     
     buildFeatures {
         compose = true
+        viewBinding = true
+        buildConfig = true
     }
 }
 
@@ -56,15 +77,35 @@ dependencies {
     implementation(libs.androidx.material3)
 
     // AppCompat & Fragment
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("androidx.fragment:fragment-ktx:1.8.5")
-    implementation("androidx.navigation:navigation-fragment-ktx:2.8.5")
-    implementation("androidx.navigation:navigation-ui-ktx:2.8.5")
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.fragment.ktx)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
+
+    // Retrofit & Network
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.moshi)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.moshi)
+    implementation(libs.moshi.kotlin)
+    ksp(libs.moshi.codegen)
+
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.android)
 
     // Hilt
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     kapt(libs.hilt.compiler)
+
+    // Room
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    kapt(libs.room.compiler)
+
+    // Image Loading
+    implementation(libs.coil.compose)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
