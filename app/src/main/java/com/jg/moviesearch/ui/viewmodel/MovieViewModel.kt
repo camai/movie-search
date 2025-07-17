@@ -182,7 +182,7 @@ class MovieViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
     
-    // 즐겨찾기 토글 기능
+    // 즐겨찾기 on/off 기능
     fun toggleFavorite(movieWithPoster: MovieWithPoster) {
         viewModelScope.launch {
             try {

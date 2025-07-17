@@ -48,7 +48,7 @@ import com.jg.moviesearch.ui.viewmodel.MovieViewModel
 @Composable
 fun SearchMovieScreen(
     modifier: Modifier = Modifier,
-    onMovieClick: (String, String, String?) -> Unit = { _, _, _ -> },
+    onMovieClickWithList: (List<MovieWithPoster>, Int) -> Unit = { _, _ -> },
     viewModel: MovieViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -132,12 +132,8 @@ fun SearchMovieScreen(
                                 movieWithPoster = movieWithPoster,
                                 isFavorite = uiState.favoriteMovies.contains(movieWithPoster.movie.movieCd),
                                 onMovieClick = {
-                                    // Fragment로 이동하는 콜백 호출
-                                    onMovieClick(
-                                        movieWithPoster.movie.movieCd,
-                                        movieWithPoster.movie.movieNm,
-                                        movieWithPoster.posterUrl
-                                    )
+                                    // 상세 화면 호출
+                                    onMovieClickWithList(uiState.movies, index)
                                 },
                                 onFavoriteClick = {
                                     // 즐겨찾기 토글 호출
@@ -149,15 +145,11 @@ fun SearchMovieScreen(
                                 movieWithPoster = movieWithPoster,
                                 isFavorite = uiState.favoriteMovies.contains(movieWithPoster.movie.movieCd),
                                 onMovieClick = {
-                                    // Fragment로 이동하는 콜백 호출
-                                    onMovieClick(
-                                        movieWithPoster.movie.movieCd,
-                                        movieWithPoster.movie.movieNm,
-                                        movieWithPoster.posterUrl
-                                    )
+                                    // 상세 화면 호출
+                                    onMovieClickWithList(uiState.movies, index)
                                 },
                                 onFavoriteClick = {
-                                    // 즐겨찾기 토글 호출
+                                    // 즐겨찾기 On/Off 호출
                                     viewModel.toggleFavorite(movieWithPoster)
                                 }
                             )
