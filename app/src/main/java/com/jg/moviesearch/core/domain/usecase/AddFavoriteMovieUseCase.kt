@@ -6,7 +6,6 @@ import javax.inject.Inject
 
 /**
  * 즐겨찾기 추가 UseCase
- * 단일 책임: 영화를 즐겨찾기에 추가하는 것만 담당
  */
 interface AddFavoriteMovieUseCase {
     suspend operator fun invoke(movie: MovieWithPoster)

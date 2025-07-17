@@ -17,7 +17,7 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class SearchMovieFragment : Fragment() {
-    
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -29,10 +29,9 @@ class SearchMovieFragment : Fragment() {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         SearchMovieScreen(
                             modifier = Modifier.padding(innerPadding),
-                            onMovieClick = { movieCd, movieTitle, posterUrl ->
-                                // MainActivity의 메서드 호출
-                                (activity as? MainActivity)?.showMovieDetailFragment(
-                                    movieCd, movieTitle, posterUrl
+                            onMovieClickWithList = { movieList, currentIndex ->
+                                (activity as? MainActivity)?.showMovieDetailPagerFragment(
+                                    movieList, currentIndex
                                 )
                             }
                         )

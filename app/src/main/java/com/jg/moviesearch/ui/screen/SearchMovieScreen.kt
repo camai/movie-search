@@ -1,5 +1,6 @@
 package com.jg.moviesearch.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
@@ -32,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,7 +48,7 @@ import com.jg.moviesearch.ui.viewmodel.MovieViewModel
 @Composable
 fun SearchMovieScreen(
     modifier: Modifier = Modifier,
-    onMovieClick: (String, String, String?) -> Unit = { _, _, _ -> },
+    onMovieClickWithList: (List<MovieWithPoster>, Int) -> Unit = { _, _ -> },
     viewModel: MovieViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -100,26 +103,83 @@ fun SearchMovieScreen(
                     CircularProgressIndicator()
                 }
             } else {
+                val listState = rememberLazyListState()
+                
+                // 무한 스크롤 감지
+                LaunchedEffect(listState) {
+                    snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+                        .collect { lastVisibleItemIndex ->
+                            if (lastVisibleItemIndex != null && 
+                                lastVisibleItemIndex >= uiState.movies.size - 3 && // 마지막 3개 아이템 전에 로드
+                                uiState.hasMoreData && 
+                                !uiState.isLoadingMore &&
+                                uiState.movies.size >= 10) { // 10개 이상일 때만 추가 로드
+                                viewModel.loadMoreMovies()
+                            }
+                        }
+                }
+                
                 LazyColumn(
+                    state = listState,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(uiState.movies) { movieWithPoster ->
-                        MovieCard(
-                            movieWithPoster = movieWithPoster,
-                            isFavorite = uiState.favoriteMovies.contains(movieWithPoster.movie.movieCd),
-                            onMovieClick = {
-                                // Fragment로 이동하는 콜백 호출
-                                onMovieClick(
-                                    movieWithPoster.movie.movieCd,
-                                    movieWithPoster.movie.movieNm,
-                                    movieWithPoster.posterUrl
-                                )
-                            },
-                            onFavoriteClick = {
-                                // 즐겨찾기 토글 호출
-                                viewModel.toggleFavorite(movieWithPoster)
+                    itemsIndexed(uiState.movies) { index, movieWithPoster ->
+                        // 패턴: 3개 Poster → 3개 Text → 반복
+                        val isPosterType = (index % 6) < 3
+                        
+                        if (isPosterType) {
+                            PosterMovieCard(
+                                movieWithPoster = movieWithPoster,
+                                isFavorite = uiState.favoriteMovies.contains(movieWithPoster.movie.movieCd),
+                                onMovieClick = {
+                                    // 상세 화면 호출
+                                    onMovieClickWithList(uiState.movies, index)
+                                },
+                                onFavoriteClick = {
+                                    // 즐겨찾기 토글 호출
+                                    viewModel.toggleFavorite(movieWithPoster)
+                                }
+                            )
+                        } else {
+                            TextMovieCard(
+                                movieWithPoster = movieWithPoster,
+                                isFavorite = uiState.favoriteMovies.contains(movieWithPoster.movie.movieCd),
+                                onMovieClick = {
+                                    // 상세 화면 호출
+                                    onMovieClickWithList(uiState.movies, index)
+                                },
+                                onFavoriteClick = {
+                                    // 즐겨찾기 On/Off 호출
+                                    viewModel.toggleFavorite(movieWithPoster)
+                                }
+                            )
+                        }
+                    }
+                    
+                    // 로딩 더 보기 상태 표시
+                    if (uiState.isLoadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
                             }
-                        )
+                        }
+                    }
+                    
+                    // 마지막 아이템 다음에 Gray 패딩 영역 추가
+                    if (uiState.movies.isNotEmpty() && !uiState.isLoadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(16.dp)
+                                    .background(Color.Gray)
+                            )
+                        }
                     }
                 }
             }
@@ -128,7 +188,7 @@ fun SearchMovieScreen(
 }
 
 @Composable
-fun MovieCard(
+private fun PosterMovieCard(
     movieWithPoster: MovieWithPoster,
     isFavorite: Boolean,
     onMovieClick: () -> Unit,
@@ -156,6 +216,61 @@ fun MovieCard(
                 error = null
             )
 
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // 영화 정보
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = movie.movieNm,
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = onFavoriteClick
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = "즐겨찾기",
+                            tint = if (isFavorite) Color.Yellow else Color.Gray
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "개봉일: ${movie.openDt}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TextMovieCard(
+    movieWithPoster: MovieWithPoster,
+    isFavorite: Boolean,
+    onMovieClick: () -> Unit,
+    onFavoriteClick: () -> Unit
+) {
+    val movie = movieWithPoster.movie
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        onClick = onMovieClick
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp)
+        ) {
             Spacer(modifier = Modifier.width(16.dp))
 
             // 영화 정보

@@ -39,6 +39,7 @@ interface KobisApi {
         @Query("key") key: String,
         @Query("movieNm") movieNm: String,
         @Query("itemPerPage") itemPerPage: Int = 50,
+        @Query("curPage") curPage: Int = 1,
         @Query("openStartDt") openStartDt: String = "1980",
         @Query("openEndDt") openEndDt: String = ""
     ): Response<MovieListResponseDto>

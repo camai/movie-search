@@ -38,6 +38,9 @@ class MovieViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     
+    // 현재 검색 쿼리 저장 (페이지네이션용)
+    private var currentSearchQuery: String = ""
+    
     init {
         setupRealTimeSearch()
         observeFavoriteMovies()
@@ -64,7 +67,15 @@ class MovieViewModel @Inject constructor(
     }
     
     private fun searchMoviesInternal(query: String) {
-        getSearchMovieUseCase(query)
+        // 새로운 검색 시 페이지 상태 초기화
+        currentSearchQuery = query
+        _uiState.value = _uiState.value.copy(
+            currentPage = 1,
+            hasMoreData = true,
+            movies = emptyList()
+        )
+        
+        getSearchMovieUseCase(query, 1)
             .onEach { result ->
                 when (result) {
                     is MovieResult.Loading -> {
@@ -74,7 +85,8 @@ class MovieViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(
                             movies = result.data,
                             isLoading = false,
-                            error = null
+                            error = null,
+                            hasMoreData = result.data.size >= 10 // 10개 이상이면 더 있을 수 있음
                         )
                     }
                     is MovieResult.Error -> {
@@ -87,7 +99,8 @@ class MovieViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(
                             movies = emptyList(),
                             isLoading = false,
-                            error = "검색 결과가 없습니다"
+                            error = "검색 결과가 없습니다",
+                            hasMoreData = false
                         )
                     }
                 }
@@ -113,6 +126,52 @@ class MovieViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = null)
     }
     
+    // 추가 데이터 로드 (무한 스크롤)
+    fun loadMoreMovies() {
+        val currentState = _uiState.value
+        
+        // 이미 로딩 중이거나 더 이상 데이터가 없으면 중단
+        if (currentState.isLoadingMore || !currentState.hasMoreData || currentSearchQuery.isEmpty()) {
+            return
+        }
+        
+        _uiState.value = currentState.copy(isLoadingMore = true)
+        
+        // 다음 페이지 데이터 로드
+        getSearchMovieUseCase(currentSearchQuery, currentState.currentPage + 1)
+            .onEach { result ->
+                when (result) {
+                    is MovieResult.Success -> {
+                        val currentMovies = _uiState.value.movies
+                        val newMovies = result.data // 새로운 페이지 데이터
+                        
+                        _uiState.value = _uiState.value.copy(
+                            movies = currentMovies + newMovies,
+                            isLoadingMore = false,
+                            currentPage = currentState.currentPage + 1,
+                            hasMoreData = newMovies.isNotEmpty() && newMovies.size >= 10 // 10개 이상이면 더 있을 수 있음
+                        )
+                    }
+                    is MovieResult.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoadingMore = false,
+                            error = "추가 데이터 로드 실패: ${result.message}"
+                        )
+                    }
+                    is MovieResult.Empty -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoadingMore = false,
+                            hasMoreData = false
+                        )
+                    }
+                    is MovieResult.Loading -> {
+                        // 이미 isLoadingMore로 로딩 상태 표시 중
+                    }
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+    
     // 즐겨찾기 상태 관찰
     private fun observeFavoriteMovies() {
         getAllFavoriteMoviesUseCase()
@@ -123,7 +182,7 @@ class MovieViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
     
-    // 즐겨찾기 토글 기능
+    // 즐겨찾기 on/off 기능
     fun toggleFavorite(movieWithPoster: MovieWithPoster) {
         viewModelScope.launch {
             try {
@@ -146,6 +205,9 @@ class MovieViewModel @Inject constructor(
 data class MovieUiState(
     val movies: List<MovieWithPoster> = emptyList(),
     val isLoading: Boolean = false,
+    val isLoadingMore: Boolean = false,
     val error: String? = null,
-    val favoriteMovies: Set<String> = emptySet()
+    val favoriteMovies: Set<String> = emptySet(),
+    val hasMoreData: Boolean = true,
+    val currentPage: Int = 1
 ) 

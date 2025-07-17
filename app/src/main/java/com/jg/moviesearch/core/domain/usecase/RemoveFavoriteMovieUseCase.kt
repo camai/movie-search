@@ -5,7 +5,6 @@ import javax.inject.Inject
 
 /**
  * 즐겨찾기 제거 UseCase
- * 단일 책임: 영화를 즐겨찾기에서 제거하는 것만 담당
  */
 interface RemoveFavoriteMovieUseCase {
     suspend operator fun invoke(movieCd: String)

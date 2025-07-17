@@ -6,7 +6,6 @@ import javax.inject.Inject
 
 /**
  * 즐겨찾기 상태 확인 UseCase
- * 특정 영화가 즐겨찾기인지 여부를 확인하는 비즈니스 로직을 처리
  */
 
 interface GetFavoriteMovieStatusUseCase {

@@ -77,7 +77,7 @@ class MovieDetailViewModel @Inject constructor(
         }
     }
     
-    // 즐겨찾기 관련 기능 추가
+    // 즐겨찾기 관찰
     fun observeFavoriteStatus(movieCd: String) {
         getFavoriteMovieStatusUseCase(movieCd)
             .onEach { isFavorite ->
