@@ -66,13 +66,21 @@ class MovieViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
     
+    // 영화 데이터를 표시 타입과 함께 처리하는 함수
+    private fun processMoviesForDisplay(movies: List<MovieWithPoster>): List<MovieDisplayItem> {
+        return movies.mapIndexed { index, movieWithPoster ->
+            MovieDisplayItem(movieWithPoster, MovieDisplayType.fromIndex(index))
+        }
+    }
+    
     private fun searchMoviesInternal(query: String) {
         // 새로운 검색 시 페이지 상태 초기화
         currentSearchQuery = query
         _uiState.value = _uiState.value.copy(
             currentPage = 1,
             hasMoreData = true,
-            movies = emptyList()
+            movies = emptyList(),
+            processedMovies = emptyList() // 초기화
         )
         
         getSearchMovieUseCase(query, 1)
@@ -82,8 +90,10 @@ class MovieViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
                     }
                     is MovieResult.Success -> {
+                        val processedMovies = processMoviesForDisplay(result.data)
                         _uiState.value = _uiState.value.copy(
                             movies = result.data,
+                            processedMovies = processedMovies,
                             isLoading = false,
                             error = null,
                             hasMoreData = result.data.size >= 10 // 10개 이상이면 더 있을 수 있음
@@ -98,6 +108,7 @@ class MovieViewModel @Inject constructor(
                     is MovieResult.Empty -> {
                         _uiState.value = _uiState.value.copy(
                             movies = emptyList(),
+                            processedMovies = emptyList(),
                             isLoading = false,
                             error = "검색 결과가 없습니다",
                             hasMoreData = false
@@ -144,9 +155,12 @@ class MovieViewModel @Inject constructor(
                     is MovieResult.Success -> {
                         val currentMovies = _uiState.value.movies
                         val newMovies = result.data // 새로운 페이지 데이터
+                        val allMovies = currentMovies + newMovies
+                        val processedMovies = processMoviesForDisplay(allMovies)
                         
                         _uiState.value = _uiState.value.copy(
-                            movies = currentMovies + newMovies,
+                            movies = allMovies,
+                            processedMovies = processedMovies,
                             isLoadingMore = false,
                             currentPage = currentState.currentPage + 1,
                             hasMoreData = newMovies.isNotEmpty() && newMovies.size >= 10 // 10개 이상이면 더 있을 수 있음
@@ -204,10 +218,29 @@ class MovieViewModel @Inject constructor(
 
 data class MovieUiState(
     val movies: List<MovieWithPoster> = emptyList(),
+    val processedMovies: List<MovieDisplayItem> = emptyList(), // 추가
     val isLoading: Boolean = false,
     val isLoadingMore: Boolean = false,
     val error: String? = null,
     val favoriteMovies: Set<String> = emptySet(),
     val hasMoreData: Boolean = true,
     val currentPage: Int = 1
-) 
+)
+
+// 새로운 데이터 클래스 추가
+data class MovieDisplayItem(
+    val movieWithPoster: MovieWithPoster,
+    val displayType: MovieDisplayType
+)
+
+// sealed class로 표시 타입 정의
+sealed class MovieDisplayType {
+    object Poster : MovieDisplayType()
+    object Text : MovieDisplayType()
+    
+    companion object {
+        fun fromIndex(index: Int): MovieDisplayType {
+            return if ((index % 6) < 3) Poster else Text
+        }
+    }
+} 

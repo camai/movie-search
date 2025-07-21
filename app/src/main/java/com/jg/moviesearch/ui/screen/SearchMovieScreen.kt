@@ -43,6 +43,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.ui.viewmodel.MovieViewModel
+import com.jg.moviesearch.ui.viewmodel.MovieDisplayType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,36 +124,38 @@ fun SearchMovieScreen(
                     state = listState,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(uiState.movies) { index, movieWithPoster ->
-                        // 패턴: 3개 Poster → 3개 Text → 반복
-                        val isPosterType = (index % 6) < 3
-                        
-                        if (isPosterType) {
-                            PosterMovieCard(
-                                movieWithPoster = movieWithPoster,
-                                isFavorite = uiState.favoriteMovies.contains(movieWithPoster.movie.movieCd),
-                                onMovieClick = {
-                                    // 상세 화면 호출
-                                    onMovieClickWithList(uiState.movies, index)
-                                },
-                                onFavoriteClick = {
-                                    // 즐겨찾기 토글 호출
-                                    viewModel.toggleFavorite(movieWithPoster)
-                                }
-                            )
-                        } else {
-                            TextMovieCard(
-                                movieWithPoster = movieWithPoster,
-                                isFavorite = uiState.favoriteMovies.contains(movieWithPoster.movie.movieCd),
-                                onMovieClick = {
-                                    // 상세 화면 호출
-                                    onMovieClickWithList(uiState.movies, index)
-                                },
-                                onFavoriteClick = {
-                                    // 즐겨찾기 On/Off 호출
-                                    viewModel.toggleFavorite(movieWithPoster)
-                                }
-                            )
+                    itemsIndexed(uiState.processedMovies) { index, movieDisplayItem ->
+                        when (movieDisplayItem.displayType) {
+                            is MovieDisplayType.Poster -> {
+                                PosterMovieCard(
+                                    movieWithPoster = movieDisplayItem.movieWithPoster,
+                                    isFavorite = uiState.favoriteMovies.contains(movieDisplayItem.movieWithPoster.movie.movieCd),
+                                    onMovieClick = {
+                                        // 상세 화면 호출 - 원본 movies 리스트에서 인덱스 찾기
+                                        val originalIndex = uiState.movies.indexOf(movieDisplayItem.movieWithPoster)
+                                        onMovieClickWithList(uiState.movies, originalIndex)
+                                    },
+                                    onFavoriteClick = {
+                                        // 즐겨찾기 토글 호출
+                                        viewModel.toggleFavorite(movieDisplayItem.movieWithPoster)
+                                    }
+                                )
+                            }
+                            is MovieDisplayType.Text -> {
+                                TextMovieCard(
+                                    movieWithPoster = movieDisplayItem.movieWithPoster,
+                                    isFavorite = uiState.favoriteMovies.contains(movieDisplayItem.movieWithPoster.movie.movieCd),
+                                    onMovieClick = {
+                                        // 상세 화면 호출 - 원본 movies 리스트에서 인덱스 찾기
+                                        val originalIndex = uiState.movies.indexOf(movieDisplayItem.movieWithPoster)
+                                        onMovieClickWithList(uiState.movies, originalIndex)
+                                    },
+                                    onFavoriteClick = {
+                                        // 즐겨찾기 On/Off 호출
+                                        viewModel.toggleFavorite(movieDisplayItem.movieWithPoster)
+                                    }
+                                )
+                            }
                         }
                     }
                     
@@ -171,7 +174,7 @@ fun SearchMovieScreen(
                     }
                     
                     // 마지막 아이템 다음에 Gray 패딩 영역 추가
-                    if (uiState.movies.isNotEmpty() && !uiState.isLoadingMore) {
+                    if (uiState.processedMovies.isNotEmpty() && !uiState.isLoadingMore) {
                         item {
                             Box(
                                 modifier = Modifier
