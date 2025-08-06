@@ -1,5 +1,7 @@
-package com.jg.moviesearch.ui.fragment
+package com.jg.moviesearch.ui.activity
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -9,94 +11,80 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import androidx.fragment.app.Fragment
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import coil.load
 import com.jg.moviesearch.R
 import com.jg.moviesearch.core.model.domain.MovieDetail
-import com.jg.moviesearch.databinding.FragmentMovieDetailPagerBinding
 import com.jg.moviesearch.ui.viewmodel.MovieDetailViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
-class MovieDetailPagerFragment : Fragment() {
-
-    private var _binding: FragmentMovieDetailPagerBinding? = null
-    private val binding get() = _binding!!
+class MovieDetailActivity : AppCompatActivity() {
 
     private lateinit var viewPager: ViewPager2
+    private lateinit var btnBack: ImageButton
     private lateinit var movieCds: List<String>
     private lateinit var movieTitles: List<String>
     private lateinit var posterUrls: List<String?>
     private var currentPosition: Int = 0
 
     companion object {
-        private const val ARG_MOVIE_CDS = "arg_movie_cds"
-        private const val ARG_MOVIE_TITLES = "arg_movie_titles"
-        private const val ARG_POSTER_URLS = "arg_poster_urls"
-        private const val ARG_CURRENT_POSITION = "arg_current_position"
+        private const val EXTRA_MOVIE_CDS = "extra_movie_cds"
+        private const val EXTRA_MOVIE_TITLES = "extra_movie_titles"
+        private const val EXTRA_POSTER_URLS = "extra_poster_urls"
+        private const val EXTRA_CURRENT_POSITION = "extra_current_position"
 
-        fun newInstance(
+        fun newIntent(
+            context: Context,
             movieCds: List<String>,
             movieTitles: List<String>,
             posterUrls: List<String?>,
             currentPosition: Int
-        ): MovieDetailPagerFragment {
-            return MovieDetailPagerFragment().apply {
-                arguments = Bundle().apply {
-                    putStringArrayList(ARG_MOVIE_CDS, ArrayList(movieCds))
-                    putStringArrayList(ARG_MOVIE_TITLES, ArrayList(movieTitles))
-                    putStringArrayList(ARG_POSTER_URLS, ArrayList(posterUrls.map { it ?: "" }))
-                    putInt(ARG_CURRENT_POSITION, currentPosition)
-                }
+        ): Intent {
+            return Intent(context, MovieDetailActivity::class.java).apply {
+                putStringArrayListExtra(EXTRA_MOVIE_CDS, ArrayList(movieCds))
+                putStringArrayListExtra(EXTRA_MOVIE_TITLES, ArrayList(movieTitles))
+                putStringArrayListExtra(EXTRA_POSTER_URLS, ArrayList(posterUrls.map { it ?: "" }))
+                putExtra(EXTRA_CURRENT_POSITION, currentPosition)
             }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        arguments?.let {
-            movieCds = it.getStringArrayList(ARG_MOVIE_CDS) ?: emptyList()
-            movieTitles = it.getStringArrayList(ARG_MOVIE_TITLES) ?: emptyList()
-            posterUrls = it.getStringArrayList(ARG_POSTER_URLS)
-                ?.map { url -> if (url.isEmpty()) null else url } ?: emptyList()
-            currentPosition = it.getInt(ARG_CURRENT_POSITION, 0)
-        }
-    }
+        setContentView(R.layout.activity_movie_detail)
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        _binding = FragmentMovieDetailPagerBinding.inflate(inflater, container, false)
-        return binding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
+        extractIntentData()
+        setupViews()
         setupViewPager()
         setupClickListeners()
     }
 
+    private fun extractIntentData() {
+        movieCds = intent.getStringArrayListExtra(EXTRA_MOVIE_CDS) ?: emptyList()
+        movieTitles = intent.getStringArrayListExtra(EXTRA_MOVIE_TITLES) ?: emptyList()
+        posterUrls = intent.getStringArrayListExtra(EXTRA_POSTER_URLS)
+            ?.map { url -> if (url.isEmpty()) null else url } ?: emptyList()
+        currentPosition = intent.getIntExtra(EXTRA_CURRENT_POSITION, 0)
+    }
+
+    private fun setupViews() {
+        viewPager = findViewById(R.id.viewPager)
+        btnBack = findViewById(R.id.btnBack)
+    }
+
     private fun setupViewPager() {
-        viewPager = binding.viewPager
         viewPager.adapter = MovieDetailPagerAdapter()
         viewPager.setCurrentItem(currentPosition, false)
     }
 
     private fun setupClickListeners() {
-        binding.btnBack.setOnClickListener {
-            parentFragmentManager.popBackStack()
+        btnBack.setOnClickListener {
+            finish()
         }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 
     inner class MovieDetailPagerAdapter :
@@ -132,8 +120,8 @@ class MovieDetailPagerFragment : Fragment() {
             private var viewModel: MovieDetailViewModel? = null
 
             fun bind(movieCd: String, movieTitle: String, posterUrl: String?) {
-                viewModel =
-                    ViewModelProvider(this@MovieDetailPagerFragment)[MovieDetailViewModel::class.java]
+                // ViewModel 초기화
+                viewModel = ViewModelProvider(this@MovieDetailActivity)[MovieDetailViewModel::class.java]
 
                 // 기본 정보 설정
                 tvMovieTitle.text = movieTitle
@@ -157,12 +145,13 @@ class MovieDetailPagerFragment : Fragment() {
                     viewModel?.toggleFavorite(movieCd, movieTitle, posterUrl)
                 }
 
+                // ViewModel의 UI 상태 관찰
                 viewModel?.let { vm ->
-                    vm.uiState.observe(this@MovieDetailPagerFragment) { uiState ->
+                    vm.uiState.observe(this@MovieDetailActivity) { uiState ->
                         uiState.movieDetail?.let { updateUI(it) }
                         progressBar.visibility = if (uiState.isLoading) View.VISIBLE else View.GONE
                         uiState.error?.let { error ->
-                            Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MovieDetailActivity, error, Toast.LENGTH_SHORT).show()
                         }
                         btnFavorite.setImageResource(
                             if (uiState.isFavorite) R.drawable.ic_star_filled else R.drawable.ic_star_outline
@@ -191,4 +180,4 @@ class MovieDetailPagerFragment : Fragment() {
             }
         }
     }
-} 
+}
