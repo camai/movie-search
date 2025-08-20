@@ -34,7 +34,7 @@ class MovieViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MovieUiState())
     val uiState: StateFlow<MovieUiState> = _uiState.asStateFlow()
 
-    // 실시간 검색을 위한 검색어 StateFlow
+    // 실시간 검색을 위한 검색어
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     
@@ -236,13 +236,11 @@ data class MovieUiState(
     val currentPage: Int = 1
 )
 
-// 새로운 데이터 클래스 추가
 data class MovieDisplayItem(
     val movieWithPoster: MovieWithPoster,
     val displayType: MovieDisplayType
 )
 
-// sealed class로 표시 타입 정의
 sealed class MovieDisplayType {
     object Poster : MovieDisplayType()
     object Text : MovieDisplayType()

@@ -48,7 +48,7 @@ import com.jg.moviesearch.ui.viewmodel.MovieDisplayType
 import com.jg.moviesearch.ui.viewmodel.MovieUiState
 
 @Composable
-fun SearchMoviceRoute(
+fun SearchMovieRoute(
     modifier: Modifier = Modifier,
     onMovieClickWithList: (List<MovieWithPoster>, Int) -> Unit = { _, _ -> },
     viewModel: MovieViewModel = hiltViewModel()
@@ -56,6 +56,17 @@ fun SearchMoviceRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
+    SearchMovieScreen(
+        modifier = modifier,
+        uiState = uiState,
+        searchQuery = searchQuery,
+        onMovieClickWithList = onMovieClickWithList,
+        updateSearchQuery = viewModel::updateSearchQuery,
+        shouldLoadMore = viewModel::shouldLoadMore,
+        loadMoreMovies = viewModel::loadMoreMovies,
+        toggleFavorite = viewModel::toggleFavorite,
+        clearError = viewModel::clearError
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,8 +82,6 @@ fun SearchMovieScreen(
     toggleFavorite: (MovieWithPoster) -> Unit = {},
     clearError: () -> Unit,
 ) {
-//    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-//    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.error) {

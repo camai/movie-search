@@ -12,6 +12,7 @@ import com.jg.moviesearch.core.domain.usecase.AddFavoriteMovieUseCase
 import com.jg.moviesearch.core.domain.usecase.RemoveFavoriteMovieUseCase
 import com.jg.moviesearch.core.domain.usecase.GetFavoriteMovieStatusUseCase
 import com.jg.moviesearch.core.model.MovieResult
+import com.jg.moviesearch.core.model.domain.Movie
 import com.jg.moviesearch.core.model.domain.MovieDetail
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -97,7 +98,7 @@ class MovieDetailViewModel @Inject constructor(
                 } else {
                     // 현재 즐겨찾기가 아니라면 추가
                     val movieWithPoster = MovieWithPoster(
-                        movie = com.jg.moviesearch.core.model.domain.Movie(
+                        movie = Movie(
                             rank = "0",
                             rankInten = "0",
                             rankOldAndNew = "NEW",

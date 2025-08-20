@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.ui.activity.MovieDetailActivity
+import com.jg.moviesearch.ui.screen.SearchMovieRoute
 import com.jg.moviesearch.ui.screen.SearchMovieScreen
 import com.jg.moviesearch.ui.theme.MovieSearchTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -23,7 +24,7 @@ class MainActivity : AppCompatActivity() {
             setContent {
                 MovieSearchTheme {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                        SearchMovieScreen(
+                        SearchMovieRoute(
                             modifier = Modifier.padding(innerPadding),
                             onMovieClickWithList = { movieList, currentIndex ->
                                 startMovieDetailActivity(movieList, currentIndex)

@@ -3,33 +3,35 @@ package com.jg.moviesearch.ui.activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
-import android.widget.ImageButton
-import android.widget.ImageView
 import android.widget.ProgressBar
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
-import coil.load
 import com.jg.moviesearch.R
 import com.jg.moviesearch.core.model.domain.MovieDetail
+import com.jg.moviesearch.databinding.ActivityMovieDetailBinding
+import com.jg.moviesearch.databinding.ActivityMovieDetailPageBinding
+import com.jg.moviesearch.ui.activity.MovieDetailPagerAdapter
 import com.jg.moviesearch.ui.viewmodel.MovieDetailViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MovieDetailActivity : AppCompatActivity() {
 
-    private lateinit var viewPager: ViewPager2
-    private lateinit var btnBack: ImageButton
-    private lateinit var movieCds: List<String>
-    private lateinit var movieTitles: List<String>
-    private lateinit var posterUrls: List<String?>
+    private lateinit var binding: ActivityMovieDetailBinding
     private var currentPosition: Int = 0
+    
+    // 데이터를 하나의 클래스로 그룹화
+    private data class MovieData(
+        val movieCds: List<String>,
+        val movieTitles: List<String>,
+        val posterUrls: List<String?>
+    )
+    
+    private var movieData: MovieData? = null
+    private lateinit var viewModel: MovieDetailViewModel
 
     companion object {
         private const val EXTRA_MOVIE_CDS = "extra_movie_cds"
@@ -55,129 +57,110 @@ class MovieDetailActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_movie_detail)
+        binding = ActivityMovieDetailBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
+        // ViewModel 초기화
+        viewModel = ViewModelProvider(this)[MovieDetailViewModel::class.java]
+        
         extractIntentData()
-        setupViews()
         setupViewPager()
         setupClickListeners()
+        observeUiState()
     }
 
     private fun extractIntentData() {
-        movieCds = intent.getStringArrayListExtra(EXTRA_MOVIE_CDS) ?: emptyList()
-        movieTitles = intent.getStringArrayListExtra(EXTRA_MOVIE_TITLES) ?: emptyList()
-        posterUrls = intent.getStringArrayListExtra(EXTRA_POSTER_URLS)
+        val movieCds = intent.getStringArrayListExtra(EXTRA_MOVIE_CDS) ?: emptyList()
+        val movieTitles = intent.getStringArrayListExtra(EXTRA_MOVIE_TITLES) ?: emptyList()
+        val posterUrls = intent.getStringArrayListExtra(EXTRA_POSTER_URLS)
             ?.map { url -> if (url.isEmpty()) null else url } ?: emptyList()
+        
+        movieData = MovieData(movieCds, movieTitles, posterUrls)
         currentPosition = intent.getIntExtra(EXTRA_CURRENT_POSITION, 0)
     }
 
-    private fun setupViews() {
-        viewPager = findViewById(R.id.viewPager)
-        btnBack = findViewById(R.id.btnBack)
-    }
-
     private fun setupViewPager() {
-        viewPager.adapter = MovieDetailPagerAdapter()
-        viewPager.setCurrentItem(currentPosition, false)
+        movieData?.let { data ->
+            binding.viewPager.adapter = MovieDetailPagerAdapter(
+                movieCds = data.movieCds,
+                movieTitles = data.movieTitles,
+                posterUrls = data.posterUrls,
+                onMovieDetailRequest = { movieCd ->
+                    viewModel.getMovieDetail(movieCd)
+                },
+                onFavoriteStatusRequest = { movieCd ->
+                    viewModel.observeFavoriteStatus(movieCd)
+                },
+                onFavoriteToggle = { movieCd, movieTitle, posterUrl ->
+                    viewModel.toggleFavorite(movieCd, movieTitle, posterUrl)
+                }
+            )
+            binding.viewPager.setCurrentItem(currentPosition, false)
+        }
     }
 
     private fun setupClickListeners() {
-        btnBack.setOnClickListener {
+        binding.btnBack.setOnClickListener {
             finish()
         }
     }
-
-    inner class MovieDetailPagerAdapter :
-        RecyclerView.Adapter<MovieDetailPagerAdapter.MovieDetailViewHolder>() {
-
-        override fun getItemCount(): Int = movieCds.size
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MovieDetailViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.fragment_movie_detail_page, parent, false)
-            return MovieDetailViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: MovieDetailViewHolder, position: Int) {
-            holder.bind(movieCds[position], movieTitles[position], posterUrls[position])
-        }
-
-        inner class MovieDetailViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            private val progressBar: ProgressBar = itemView.findViewById(R.id.progressBar)
-            private val ivPoster: ImageView = itemView.findViewById(R.id.ivPoster)
-            private val tvMovieTitle: TextView = itemView.findViewById(R.id.tvMovieTitle)
-            private val btnFavorite: ImageButton = itemView.findViewById(R.id.btnFavorite)
-            private val tvOpenDate: TextView = itemView.findViewById(R.id.tvOpenDate)
-            private val tvShowTime: TextView = itemView.findViewById(R.id.tvShowTime)
-            private val tvMovieType: TextView = itemView.findViewById(R.id.tvMovieType)
-            private val tvNation: TextView = itemView.findViewById(R.id.tvNation)
-            private val tvGenre: TextView = itemView.findViewById(R.id.tvGenre)
-            private val tvWatchGrade: TextView = itemView.findViewById(R.id.tvWatchGrade)
-            private val tvDirector: TextView = itemView.findViewById(R.id.tvDirector)
-            private val tvActors: TextView = itemView.findViewById(R.id.tvActors)
-            private val tvPrdtYear: TextView = itemView.findViewById(R.id.tvPrdtYear)
-
-            private var viewModel: MovieDetailViewModel? = null
-
-            fun bind(movieCd: String, movieTitle: String, posterUrl: String?) {
-                // ViewModel 초기화
-                viewModel = ViewModelProvider(this@MovieDetailActivity)[MovieDetailViewModel::class.java]
-
-                // 기본 정보 설정
-                tvMovieTitle.text = movieTitle
-
-                // 포스터 이미지 로드
-                posterUrl?.let { url ->
-                    if (url.isNotEmpty()) {
-                        ivPoster.load(url) {
-                            placeholder(R.drawable.ic_movie_placeholder)
-                            error(R.drawable.ic_movie_placeholder)
-                        }
-                    } else {
-                        ivPoster.setImageResource(R.drawable.ic_movie_placeholder)
-                    }
-                } ?: run {
-                    ivPoster.setImageResource(R.drawable.ic_movie_placeholder)
-                }
-
-                // 즐겨찾기 버튼 클릭
-                btnFavorite.setOnClickListener {
-                    viewModel?.toggleFavorite(movieCd, movieTitle, posterUrl)
-                }
-
-                // ViewModel의 UI 상태 관찰
-                viewModel?.let { vm ->
-                    vm.uiState.observe(this@MovieDetailActivity) { uiState ->
-                        uiState.movieDetail?.let { updateUI(it) }
-                        progressBar.visibility = if (uiState.isLoading) View.VISIBLE else View.GONE
-                        uiState.error?.let { error ->
-                            Toast.makeText(this@MovieDetailActivity, error, Toast.LENGTH_SHORT).show()
-                        }
-                        btnFavorite.setImageResource(
-                            if (uiState.isFavorite) R.drawable.ic_star_filled else R.drawable.ic_star_outline
-                        )
-                    }
-
-                    // 영화 상세 정보 로드
-                    if (movieCd.isNotEmpty()) {
-                        vm.getMovieDetail(movieCd)
-                        vm.observeFavoriteStatus(movieCd)
-                    }
-                }
+    
+    private fun observeUiState() {
+        viewModel.uiState.observe(this) { uiState ->
+            // 로딩 상태 업데이트 (현재 페이지의 progressBar)
+            updateProgressBar(uiState.isLoading)
+            
+            // 에러 처리
+            uiState.error?.let { error ->
+                Toast.makeText(this, error, Toast.LENGTH_SHORT).show()
             }
-
-            private fun updateUI(movieDetail: MovieDetail) {
-                tvMovieTitle.text = movieDetail.movieNm
-                tvMovieType.text = movieDetail.typeNm
-                tvOpenDate.text = movieDetail.openDt
-                tvShowTime.text = "${movieDetail.showTm}분"
-                tvDirector.text = movieDetail.directors.joinToString(", ") { it.peopleNm }
-                tvActors.text = movieDetail.actors.joinToString(", ") { it.peopleNm }
-                tvGenre.text = movieDetail.genres.joinToString(", ") { it.genreNm }
-                tvNation.text = movieDetail.nations.joinToString(", ") { it.nationNm }
-                tvWatchGrade.text = movieDetail.prdtStatNm // 제작상태
-                tvPrdtYear.text = movieDetail.prdtYear // 제작연도
+            
+            // 영화 상세 정보 업데이트
+            uiState.movieDetail?.let { movieDetail ->
+                updateCurrentPageUI(movieDetail)
             }
+            
+            // 즐겨찾기 상태 업데이트
+            updateFavoriteButton(uiState.isFavorite)
+        }
+    }
+    
+    private fun updateCurrentPageUI(movieDetail: MovieDetail) {
+        try {
+            val pageBinding = ActivityMovieDetailPageBinding.bind(binding.viewPager.getChildAt(0)!!)
+            
+            pageBinding.tvMovieTitle.text = movieDetail.movieNm
+            pageBinding.tvMovieType.text = movieDetail.typeNm
+            pageBinding.tvOpenDate.text = movieDetail.openDt
+            pageBinding.tvShowTime.text = "${movieDetail.showTm}분"
+            pageBinding.tvDirector.text = movieDetail.directors.joinToString(", ") { it.peopleNm }
+            pageBinding.tvActors.text = movieDetail.actors.joinToString(", ") { it.peopleNm }
+            pageBinding.tvGenre.text = movieDetail.genres.joinToString(", ") { it.genreNm }
+            pageBinding.tvNation.text = movieDetail.nations.joinToString(", ") { it.nationNm }
+            pageBinding.tvWatchGrade.text = movieDetail.prdtStatNm
+            pageBinding.tvPrdtYear.text = movieDetail.prdtYear
+        } catch (e: Exception) {
+            // ViewPager에 아직 페이지가 없거나 바인딩 실패 시 무시
+        }
+    }
+    
+    private fun updateProgressBar(isLoading: Boolean) {
+        try {
+            val pageBinding = ActivityMovieDetailPageBinding.bind(binding.viewPager.getChildAt(0)!!)
+            pageBinding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+        } catch (e: Exception) {
+            // ViewPager에 아직 페이지가 없거나 바인딩 실패 시 무시
+        }
+    }
+    
+    private fun updateFavoriteButton(isFavorite: Boolean) {
+        try {
+            val pageBinding = ActivityMovieDetailPageBinding.bind(binding.viewPager.getChildAt(0)!!)
+            pageBinding.btnFavorite.setImageResource(
+                if (isFavorite) R.drawable.ic_star_filled else R.drawable.ic_star_outline
+            )
+        } catch (e: Exception) {
+            // ViewPager에 아직 페이지가 없거나 바인딩 실패 시 무시
         }
     }
 }
