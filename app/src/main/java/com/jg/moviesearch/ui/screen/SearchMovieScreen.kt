@@ -40,20 +40,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.ui.viewmodel.MovieViewModel
 import com.jg.moviesearch.ui.viewmodel.MovieDisplayType
+import com.jg.moviesearch.ui.viewmodel.MovieUiState
+
+@Composable
+fun SearchMoviceRoute(
+    modifier: Modifier = Modifier,
+    onMovieClickWithList: (List<MovieWithPoster>, Int) -> Unit = { _, _ -> },
+    viewModel: MovieViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchMovieScreen(
     modifier: Modifier = Modifier,
+    uiState: MovieUiState,
+    searchQuery: String,
     onMovieClickWithList: (List<MovieWithPoster>, Int) -> Unit = { _, _ -> },
-    viewModel: MovieViewModel = hiltViewModel()
+    updateSearchQuery: (String) -> Unit,
+    shouldLoadMore: (Int) -> Boolean = { false },
+    loadMoreMovies: () -> Unit = {},
+    toggleFavorite: (MovieWithPoster) -> Unit = {},
+    clearError: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val searchQuery by viewModel.searchQuery.collectAsState()
+//    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+//    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.error) {
@@ -62,7 +81,7 @@ fun SearchMovieScreen(
                 message = error,
                 duration = SnackbarDuration.Short
             )
-            viewModel.clearError()
+            clearError()
         }
     }
 
@@ -86,7 +105,7 @@ fun SearchMovieScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { newText ->
-                    viewModel.updateSearchQuery(newText)
+                    updateSearchQuery(newText)
                 },
                 label = { Text("영화 검색") },
                 placeholder = { Text("영화 제목을 입력하세요") },
@@ -110,12 +129,8 @@ fun SearchMovieScreen(
                 LaunchedEffect(listState) {
                     snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
                         .collect { lastVisibleItemIndex ->
-                            if (lastVisibleItemIndex != null && 
-                                lastVisibleItemIndex >= uiState.movies.size - 3 && // 마지막 3개 아이템 전에 로드
-                                uiState.hasMoreData && 
-                                !uiState.isLoadingMore &&
-                                uiState.movies.size >= 10) { // 10개 이상일 때만 추가 로드
-                                viewModel.loadMoreMovies()
+                            if (lastVisibleItemIndex != null && shouldLoadMore(lastVisibleItemIndex)) {
+                                loadMoreMovies()
                             }
                         }
                 }
@@ -137,7 +152,7 @@ fun SearchMovieScreen(
                                     },
                                     onFavoriteClick = {
                                         // 즐겨찾기 토글 호출
-                                        viewModel.toggleFavorite(movieDisplayItem.movieWithPoster)
+                                        toggleFavorite(movieDisplayItem.movieWithPoster)
                                     }
                                 )
                             }
@@ -152,7 +167,7 @@ fun SearchMovieScreen(
                                     },
                                     onFavoriteClick = {
                                         // 즐겨찾기 On/Off 호출
-                                        viewModel.toggleFavorite(movieDisplayItem.movieWithPoster)
+                                        toggleFavorite(movieDisplayItem.movieWithPoster)
                                     }
                                 )
                             }

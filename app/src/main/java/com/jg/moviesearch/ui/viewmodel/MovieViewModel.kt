@@ -137,6 +137,15 @@ class MovieViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = null)
     }
     
+    // 무한 스크롤 조건 체크
+    fun shouldLoadMore(lastVisibleItemIndex: Int): Boolean {
+        val currentState = _uiState.value
+        return lastVisibleItemIndex >= currentState.movies.size - 3 && // 마지막 3개 아이템 전에 로드
+               currentState.hasMoreData && 
+               !currentState.isLoadingMore &&
+               currentState.movies.size >= 10 // 10개 이상일 때만 추가 로드
+    }
+    
     // 추가 데이터 로드 (무한 스크롤)
     fun loadMoreMovies() {
         val currentState = _uiState.value
