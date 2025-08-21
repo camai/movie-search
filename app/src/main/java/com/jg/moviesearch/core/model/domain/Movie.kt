@@ -22,4 +22,26 @@ data class Movie(
     val audiAcc: String,
     val scrnCnt: String,
     val showCnt: String
-) 
+) {
+    companion object {
+        fun notFavoriteMovie(movieCd: String, movieTitle: String) = Movie(
+            rank = "0",
+            rankInten = "0",
+            rankOldAndNew = "NEW",
+            movieCd = movieCd,
+            movieNm = movieTitle,
+            openDt = "",
+            salesAmt = "0",
+            salesShare = "0.0",
+            salesInten = "0",
+            salesChange = "0",
+            salesAcc = "0",
+            audiCnt = "0",
+            audiInten = "0",
+            audiChange = "0",
+            audiAcc = "0",
+            scrnCnt = "0",
+            showCnt = "0"
+        )
+    }
+}

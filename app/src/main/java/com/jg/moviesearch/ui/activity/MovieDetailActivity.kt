@@ -126,9 +126,7 @@ class MovieDetailActivity : AppCompatActivity() {
     }
     
     private fun updateCurrentPageUI(movieDetail: MovieDetail) {
-        try {
-            val pageBinding = ActivityMovieDetailPageBinding.bind(binding.viewPager.getChildAt(0)!!)
-            
+        withCurrentPage { pageBinding ->
             pageBinding.tvMovieTitle.text = movieDetail.movieNm
             pageBinding.tvMovieType.text = movieDetail.typeNm
             pageBinding.tvOpenDate.text = movieDetail.openDt
@@ -139,28 +137,28 @@ class MovieDetailActivity : AppCompatActivity() {
             pageBinding.tvNation.text = movieDetail.nations.joinToString(", ") { it.nationNm }
             pageBinding.tvWatchGrade.text = movieDetail.prdtStatNm
             pageBinding.tvPrdtYear.text = movieDetail.prdtYear
-        } catch (e: Exception) {
-            // ViewPager에 아직 페이지가 없거나 바인딩 실패 시 무시
+        }
+    }
+    
+    private fun withCurrentPage(action: (ActivityMovieDetailPageBinding) -> Unit) {
+        val currentPage = binding.viewPager.getChildAt(0)
+        if (currentPage != null) {
+            val pageBinding = ActivityMovieDetailPageBinding.bind(currentPage)
+            action(pageBinding)
         }
     }
     
     private fun updateProgressBar(isLoading: Boolean) {
-        try {
-            val pageBinding = ActivityMovieDetailPageBinding.bind(binding.viewPager.getChildAt(0)!!)
+        withCurrentPage { pageBinding ->
             pageBinding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
-        } catch (e: Exception) {
-            // ViewPager에 아직 페이지가 없거나 바인딩 실패 시 무시
         }
     }
     
     private fun updateFavoriteButton(isFavorite: Boolean) {
-        try {
-            val pageBinding = ActivityMovieDetailPageBinding.bind(binding.viewPager.getChildAt(0)!!)
+        withCurrentPage { pageBinding ->
             pageBinding.btnFavorite.setImageResource(
                 if (isFavorite) R.drawable.ic_star_filled else R.drawable.ic_star_outline
             )
-        } catch (e: Exception) {
-            // ViewPager에 아직 페이지가 없거나 바인딩 실패 시 무시
         }
     }
 }

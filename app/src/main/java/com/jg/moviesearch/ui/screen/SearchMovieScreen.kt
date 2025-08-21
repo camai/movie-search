@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -31,7 +32,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
@@ -43,6 +43,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
+import com.jg.moviesearch.ui.viewmodel.MovieDisplayItem
 import com.jg.moviesearch.ui.viewmodel.MovieViewModel
 import com.jg.moviesearch.ui.viewmodel.MovieDisplayType
 import com.jg.moviesearch.ui.viewmodel.MovieUiState
@@ -55,11 +56,13 @@ fun SearchMovieRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
 
     SearchMovieScreen(
         modifier = modifier,
         uiState = uiState,
         searchQuery = searchQuery,
+        listState = listState,
         onMovieClickWithList = onMovieClickWithList,
         updateSearchQuery = viewModel::updateSearchQuery,
         shouldLoadMore = viewModel::shouldLoadMore,
@@ -75,6 +78,7 @@ fun SearchMovieScreen(
     modifier: Modifier = Modifier,
     uiState: MovieUiState,
     searchQuery: String,
+    listState: LazyListState = rememberLazyListState(),
     onMovieClickWithList: (List<MovieWithPoster>, Int) -> Unit = { _, _ -> },
     updateSearchQuery: (String) -> Unit,
     shouldLoadMore: (Int) -> Boolean = { false },
@@ -132,8 +136,6 @@ fun SearchMovieScreen(
                     CircularProgressIndicator()
                 }
             } else {
-                val listState = rememberLazyListState()
-                
                 // 무한 스크롤 감지
                 LaunchedEffect(listState) {
                     snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
@@ -149,38 +151,12 @@ fun SearchMovieScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     itemsIndexed(uiState.processedMovies) { index, movieDisplayItem ->
-                        when (movieDisplayItem.displayType) {
-                            is MovieDisplayType.Poster -> {
-                                PosterMovieCard(
-                                    movieWithPoster = movieDisplayItem.movieWithPoster,
-                                    isFavorite = uiState.favoriteMovies.contains(movieDisplayItem.movieWithPoster.movie.movieCd),
-                                    onMovieClick = {
-                                        // 상세 화면 호출 - 원본 movies 리스트에서 인덱스 찾기
-                                        val originalIndex = uiState.movies.indexOf(movieDisplayItem.movieWithPoster)
-                                        onMovieClickWithList(uiState.movies, originalIndex)
-                                    },
-                                    onFavoriteClick = {
-                                        // 즐겨찾기 토글 호출
-                                        toggleFavorite(movieDisplayItem.movieWithPoster)
-                                    }
-                                )
-                            }
-                            is MovieDisplayType.Text -> {
-                                TextMovieCard(
-                                    movieWithPoster = movieDisplayItem.movieWithPoster,
-                                    isFavorite = uiState.favoriteMovies.contains(movieDisplayItem.movieWithPoster.movie.movieCd),
-                                    onMovieClick = {
-                                        // 상세 화면 호출 - 원본 movies 리스트에서 인덱스 찾기
-                                        val originalIndex = uiState.movies.indexOf(movieDisplayItem.movieWithPoster)
-                                        onMovieClickWithList(uiState.movies, originalIndex)
-                                    },
-                                    onFavoriteClick = {
-                                        // 즐겨찾기 On/Off 호출
-                                        toggleFavorite(movieDisplayItem.movieWithPoster)
-                                    }
-                                )
-                            }
-                        }
+                        CreateMovieCard(
+                            movieDisplayItem = movieDisplayItem,
+                            uiState = uiState,
+                            onMovieClickWithList = onMovieClickWithList,
+                            toggleFavorite = toggleFavorite
+                        )
                     }
                     
                     // 로딩 더 보기 상태 표시
@@ -210,6 +186,46 @@ fun SearchMovieScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CreateMovieCard(
+    movieDisplayItem: MovieDisplayItem,
+    uiState: MovieUiState,
+    onMovieClickWithList: (List<MovieWithPoster>, Int) -> Unit,
+    toggleFavorite: (MovieWithPoster) -> Unit
+) {
+    val movieWithPoster = movieDisplayItem.movieWithPoster
+    val isFavorite = uiState.favoriteMovies.contains(movieWithPoster.movie.movieCd)
+    
+    // 공통 클릭 핸들러
+    val onMovieClick = {
+        val originalIndex = uiState.movies.indexOf(movieWithPoster)
+        onMovieClickWithList(uiState.movies, originalIndex)
+    }
+    
+    val onFavoriteClick = {
+        toggleFavorite(movieWithPoster)
+    }
+    
+    when (movieDisplayItem.displayType) {
+        is MovieDisplayType.Poster -> {
+            PosterMovieCard(
+                movieWithPoster = movieWithPoster,
+                isFavorite = isFavorite,
+                onMovieClick = onMovieClick,
+                onFavoriteClick = onFavoriteClick
+            )
+        }
+        is MovieDisplayType.Text -> {
+            TextMovieCard(
+                movieWithPoster = movieWithPoster,
+                isFavorite = isFavorite,
+                onMovieClick = onMovieClick,
+                onFavoriteClick = onFavoriteClick
+            )
         }
     }
 }
