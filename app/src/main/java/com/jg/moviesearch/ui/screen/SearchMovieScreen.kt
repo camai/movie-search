@@ -48,6 +48,15 @@ import com.jg.moviesearch.ui.viewmodel.MovieViewModel
 import com.jg.moviesearch.ui.viewmodel.MovieDisplayType
 import com.jg.moviesearch.ui.viewmodel.MovieUiState
 
+// SearchMovieScreen Actions
+sealed interface SearchMovieAction {
+    data class UpdateSearchQuery(val query: String) : SearchMovieAction
+    data class LoadMore(val lastVisibleIndex: Int) : SearchMovieAction
+    data class ToggleFavorite(val movie: MovieWithPoster) : SearchMovieAction
+    data class MovieClick(val movie: MovieWithPoster, val movieList: List<MovieWithPoster>) : SearchMovieAction
+    object ClearError : SearchMovieAction
+}
+
 @Composable
 fun SearchMovieRoute(
     modifier: Modifier = Modifier,
@@ -63,12 +72,22 @@ fun SearchMovieRoute(
         uiState = uiState,
         searchQuery = searchQuery,
         listState = listState,
-        onMovieClickWithList = onMovieClickWithList,
-        updateSearchQuery = viewModel::updateSearchQuery,
-        shouldLoadMore = viewModel::shouldLoadMore,
-        loadMoreMovies = viewModel::loadMoreMovies,
-        toggleFavorite = viewModel::toggleFavorite,
-        clearError = viewModel::clearError
+        onAction = { action ->
+            when (action) {
+                is SearchMovieAction.UpdateSearchQuery -> viewModel.updateSearchQuery(action.query)
+                is SearchMovieAction.LoadMore -> {
+                    if (viewModel.shouldLoadMore(action.lastVisibleIndex)) {
+                        viewModel.loadMoreMovies()
+                    }
+                }
+                is SearchMovieAction.ToggleFavorite -> viewModel.toggleFavorite(action.movie)
+                is SearchMovieAction.MovieClick -> {
+                    val originalIndex = action.movieList.indexOf(action.movie)
+                    onMovieClickWithList(action.movieList, originalIndex)
+                }
+                SearchMovieAction.ClearError -> viewModel.clearError()
+            }
+        }
     )
 }
 
@@ -79,12 +98,7 @@ fun SearchMovieScreen(
     uiState: MovieUiState,
     searchQuery: String,
     listState: LazyListState = rememberLazyListState(),
-    onMovieClickWithList: (List<MovieWithPoster>, Int) -> Unit = { _, _ -> },
-    updateSearchQuery: (String) -> Unit,
-    shouldLoadMore: (Int) -> Boolean = { false },
-    loadMoreMovies: () -> Unit = {},
-    toggleFavorite: (MovieWithPoster) -> Unit = {},
-    clearError: () -> Unit,
+    onAction: (SearchMovieAction) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -94,7 +108,7 @@ fun SearchMovieScreen(
                 message = error,
                 duration = SnackbarDuration.Short
             )
-            clearError()
+            onAction(SearchMovieAction.ClearError)
         }
     }
 
@@ -118,7 +132,7 @@ fun SearchMovieScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { newText ->
-                    updateSearchQuery(newText)
+                    onAction(SearchMovieAction.UpdateSearchQuery(newText))
                 },
                 label = { Text("영화 검색") },
                 placeholder = { Text("영화 제목을 입력하세요") },
@@ -140,8 +154,8 @@ fun SearchMovieScreen(
                 LaunchedEffect(listState) {
                     snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
                         .collect { lastVisibleItemIndex ->
-                            if (lastVisibleItemIndex != null && shouldLoadMore(lastVisibleItemIndex)) {
-                                loadMoreMovies()
+                            if (lastVisibleItemIndex != null) {
+                                onAction(SearchMovieAction.LoadMore(lastVisibleItemIndex))
                             }
                         }
                 }
@@ -154,8 +168,7 @@ fun SearchMovieScreen(
                         CreateMovieCard(
                             movieDisplayItem = movieDisplayItem,
                             uiState = uiState,
-                            onMovieClickWithList = onMovieClickWithList,
-                            toggleFavorite = toggleFavorite
+                            onAction = onAction
                         )
                     }
                     
@@ -194,20 +207,18 @@ fun SearchMovieScreen(
 private fun CreateMovieCard(
     movieDisplayItem: MovieDisplayItem,
     uiState: MovieUiState,
-    onMovieClickWithList: (List<MovieWithPoster>, Int) -> Unit,
-    toggleFavorite: (MovieWithPoster) -> Unit
+    onAction: (SearchMovieAction) -> Unit
 ) {
     val movieWithPoster = movieDisplayItem.movieWithPoster
     val isFavorite = uiState.favoriteMovies.contains(movieWithPoster.movie.movieCd)
     
     // 공통 클릭 핸들러
     val onMovieClick = {
-        val originalIndex = uiState.movies.indexOf(movieWithPoster)
-        onMovieClickWithList(uiState.movies, originalIndex)
+        onAction(SearchMovieAction.MovieClick(movieWithPoster, uiState.movies))
     }
     
     val onFavoriteClick = {
-        toggleFavorite(movieWithPoster)
+        onAction(SearchMovieAction.ToggleFavorite(movieWithPoster))
     }
     
     when (movieDisplayItem.displayType) {

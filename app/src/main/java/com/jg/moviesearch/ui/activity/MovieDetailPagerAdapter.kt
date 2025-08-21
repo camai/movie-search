@@ -11,9 +11,7 @@ class MovieDetailPagerAdapter(
     private val movieCds: List<String>,
     private val movieTitles: List<String>,
     private val posterUrls: List<String?>,
-    private val onMovieDetailRequest: (String) -> Unit,
-    private val onFavoriteStatusRequest: (String) -> Unit,
-    private val onFavoriteToggle: (String, String, String?) -> Unit
+    private val onAction: (MovieDetailAction) -> Unit
 ) : RecyclerView.Adapter<MovieDetailPagerAdapter.MovieDetailViewHolder>() {
 
     override fun getItemCount(): Int = movieCds.size
@@ -30,10 +28,8 @@ class MovieDetailPagerAdapter(
     inner class MovieDetailViewHolder(private val binding: ActivityMovieDetailPageBinding) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(movieCd: String, movieTitle: String, posterUrl: String?) {
-            // 기본 정보 설정
             binding.tvMovieTitle.text = movieTitle
 
-            // 포스터 이미지 로드
             posterUrl?.let { url ->
                 if (url.isNotEmpty()) {
                     binding.ivPoster.load(url) {
@@ -47,15 +43,13 @@ class MovieDetailPagerAdapter(
                 binding.ivPoster.setImageResource(R.drawable.ic_movie_placeholder)
             }
 
-            // 즐겨찾기 버튼 클릭
             binding.btnFavorite.setOnClickListener {
-                onFavoriteToggle(movieCd, movieTitle, posterUrl)
+                onAction(MovieDetailAction.ToggleFavorite(movieCd, movieTitle, posterUrl))
             }
 
-            // 영화 상세 정보 로드
             if (movieCd.isNotEmpty()) {
-                onMovieDetailRequest(movieCd)
-                onFavoriteStatusRequest(movieCd)
+                onAction(MovieDetailAction.GetMovieDetail(movieCd))
+                onAction(MovieDetailAction.ObserveFavoriteStatus(movieCd))
             }
         }
     }

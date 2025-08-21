@@ -17,6 +17,12 @@ import com.jg.moviesearch.ui.activity.MovieDetailPagerAdapter
 import com.jg.moviesearch.ui.viewmodel.MovieDetailViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
+sealed interface MovieDetailAction {
+    data class GetMovieDetail(val movieCd: String) : MovieDetailAction
+    data class ObserveFavoriteStatus(val movieCd: String) : MovieDetailAction
+    data class ToggleFavorite(val movieCd: String, val movieTitle: String, val posterUrl: String?) : MovieDetailAction
+}
+
 @AndroidEntryPoint
 class MovieDetailActivity : AppCompatActivity() {
 
@@ -85,14 +91,12 @@ class MovieDetailActivity : AppCompatActivity() {
                 movieCds = data.movieCds,
                 movieTitles = data.movieTitles,
                 posterUrls = data.posterUrls,
-                onMovieDetailRequest = { movieCd ->
-                    viewModel.getMovieDetail(movieCd)
-                },
-                onFavoriteStatusRequest = { movieCd ->
-                    viewModel.observeFavoriteStatus(movieCd)
-                },
-                onFavoriteToggle = { movieCd, movieTitle, posterUrl ->
-                    viewModel.toggleFavorite(movieCd, movieTitle, posterUrl)
+                onAction = { action ->
+                    when (action) {
+                        is MovieDetailAction.GetMovieDetail -> viewModel.getMovieDetail(action.movieCd)
+                        is MovieDetailAction.ObserveFavoriteStatus -> viewModel.observeFavoriteStatus(action.movieCd)
+                        is MovieDetailAction.ToggleFavorite -> viewModel.toggleFavorite(action.movieCd, action.movieTitle, action.posterUrl)
+                    }
                 }
             )
             binding.viewPager.setCurrentItem(currentPosition, false)
