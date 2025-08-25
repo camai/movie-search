@@ -2,7 +2,13 @@ package com.jg.moviesearch.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.Flow
+import com.jg.moviesearch.core.domain.usecase.AddFavoriteMovieUseCase
+import com.jg.moviesearch.core.domain.usecase.GetAllFavoriteMoviesUseCase
+import com.jg.moviesearch.core.domain.usecase.GetSearchMovieUseCase
+import com.jg.moviesearch.core.domain.usecase.RemoveFavoriteMovieUseCase
+import com.jg.moviesearch.core.model.MovieResult
+import com.jg.moviesearch.core.model.domain.MovieWithPoster
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,16 +17,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.jg.moviesearch.core.domain.usecase.GetSearchMovieUseCase
-import com.jg.moviesearch.core.domain.usecase.GetMovieDetailUseCase
-import com.jg.moviesearch.core.domain.usecase.GetAllFavoriteMoviesUseCase
-import com.jg.moviesearch.core.domain.usecase.AddFavoriteMovieUseCase
-import com.jg.moviesearch.core.domain.usecase.RemoveFavoriteMovieUseCase
-import com.jg.moviesearch.core.model.MovieResult
-import com.jg.moviesearch.core.model.domain.MovieDetail
-import com.jg.moviesearch.core.model.domain.MovieWithPoster
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
@@ -30,197 +28,267 @@ class MovieViewModel @Inject constructor(
     private val addFavoriteMovieUseCase: AddFavoriteMovieUseCase,
     private val removeFavoriteMovieUseCase: RemoveFavoriteMovieUseCase
 ) : ViewModel() {
-    
+
     private val _uiState = MutableStateFlow(MovieUiState())
     val uiState: StateFlow<MovieUiState> = _uiState.asStateFlow()
 
     // 실시간 검색을 위한 검색어
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-    
-    // 현재 검색 쿼리 저장 (페이지네이션용)
+
+    // 현재 검색 쿼리
     private var currentSearchQuery: String = ""
-    
+
+    // ==================== 초기화 ====================
     init {
         setupRealTimeSearch()
         observeFavoriteMovies()
     }
-    
+
+    // ==================== 검색 관련 함수들 ====================
+
     // 실시간 검색 설정
     private fun setupRealTimeSearch() {
         _searchQuery
-            .debounce(300) // 300ms 대기
-            .distinctUntilChanged() // 동일한 검색어 중복 제거
-            .filter { it.trim().length >= 2 } // 최소 2글자 이상
+            .debounce(300)
+            .distinctUntilChanged()
+            .filter { it.trim().length >= 2 }
             .onEach { query ->
                 if (query.isBlank()) {
-                    _uiState.value = _uiState.value.copy(
-                        movies = emptyList(),
-                        isLoading = false,
-                        error = null
-                    )
+                    clearSearchResults()
                 } else {
-                    searchMoviesInternal(query.trim())
+                    searchMoviesInternal(query = query.trim())
                 }
             }
             .launchIn(viewModelScope)
     }
-    
-    // 영화 데이터를 표시 타입과 함께 처리하는 함수
-    private fun processMoviesForDisplay(movies: List<MovieWithPoster>): List<MovieDisplayItem> {
-        return movies.mapIndexed { index, movieWithPoster ->
-            MovieDisplayItem(movieWithPoster, MovieDisplayType.fromIndex(index))
-        }
-    }
-    
-    private fun searchMoviesInternal(query: String) {
-        // 새로운 검색 시 페이지 상태 초기화
-        currentSearchQuery = query
-        _uiState.value = _uiState.value.copy(
-            currentPage = 1,
-            hasMoreData = true,
-            movies = emptyList(),
-            processedMovies = emptyList() // 초기화
-        )
-        
-        getSearchMovieUseCase(query, 1)
-            .onEach { result ->
-                when (result) {
-                    is MovieResult.Loading -> {
-                        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-                    }
-                    is MovieResult.Success -> {
-                        val processedMovies = processMoviesForDisplay(result.data)
-                        _uiState.value = _uiState.value.copy(
-                            movies = result.data,
-                            processedMovies = processedMovies,
-                            isLoading = false,
-                            error = null,
-                            hasMoreData = result.data.size >= 10 // 10개 이상이면 더 있을 수 있음
-                        )
-                    }
-                    is MovieResult.Error -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = "영화 검색 실패: ${result.message}"
-                        )
-                    }
-                    is MovieResult.Empty -> {
-                        _uiState.value = _uiState.value.copy(
-                            movies = emptyList(),
-                            processedMovies = emptyList(),
-                            isLoading = false,
-                            error = "검색 결과가 없습니다",
-                            hasMoreData = false
-                        )
-                    }
-                }
-            }
-            .launchIn(viewModelScope)
-    }
-    
-    // 검색어 업데이트 (UI에서 호출)
+
+    // 검색어 업데이트
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
         if (query.trim().length >= 2) {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            showLoading()
         } else if (query.trim().isEmpty()) {
-            _uiState.value = _uiState.value.copy(
-                movies = emptyList(),
-                isLoading = false,
-                error = null
-            )
+            clearSearchResults()
         }
     }
-    
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
+
+    // 내부 검색
+    private fun searchMoviesInternal(query: String) {
+        currentSearchQuery = query
+        resetSearchState()
+
+        getSearchMovieUseCase(query, 1)
+            .onEach { result ->
+                when (result) {
+                    is MovieResult.Loading -> showLoading()
+                    is MovieResult.Success -> handleSearchSuccess(movies = result.data)
+                    is MovieResult.Error -> handleError(
+                        message = result.message,
+                        prefix = "영화 검색 실패"
+                    )
+
+                    is MovieResult.Empty -> handleSearchEmpty()
+                }
+            }
+            .launchIn(viewModelScope)
     }
-    
+
+    // ==================== 무한 스크롤 관련 함수들 ====================
+
     // 무한 스크롤 조건 체크
     fun shouldLoadMore(lastVisibleItemIndex: Int): Boolean {
         val currentState = _uiState.value
-        return lastVisibleItemIndex >= currentState.movies.size - 3 && // 마지막 3개 아이템 전에 로드
-               currentState.hasMoreData && 
-               !currentState.isLoadingMore &&
-               currentState.movies.size >= 10 // 10개 이상일 때만 추가 로드
+        return lastVisibleItemIndex >= currentState.movies.size - 3 &&
+                currentState.hasMoreData &&
+                !currentState.isLoadingMore &&
+                currentState.movies.size >= 10
     }
-    
+
     // 추가 데이터 로드 (무한 스크롤)
     fun loadMoreMovies() {
         val currentState = _uiState.value
-        
-        // 이미 로딩 중이거나 더 이상 데이터가 없으면 중단
+
         if (currentState.isLoadingMore || !currentState.hasMoreData || currentSearchQuery.isEmpty()) {
             return
         }
-        
-        _uiState.value = currentState.copy(isLoadingMore = true)
-        
-        // 다음 페이지 데이터 로드
+
+        _uiState.update { state ->
+            state.copy(isLoadingMore = true)
+        }
+
         getSearchMovieUseCase(currentSearchQuery, currentState.currentPage + 1)
             .onEach { result ->
                 when (result) {
-                    is MovieResult.Success -> {
-                        val currentMovies = _uiState.value.movies
-                        val newMovies = result.data // 새로운 페이지 데이터
-                        val allMovies = currentMovies + newMovies
-                        val processedMovies = processMoviesForDisplay(allMovies)
-                        
-                        _uiState.value = _uiState.value.copy(
-                            movies = allMovies,
-                            processedMovies = processedMovies,
-                            isLoadingMore = false,
-                            currentPage = currentState.currentPage + 1,
-                            hasMoreData = newMovies.isNotEmpty() && newMovies.size >= 10 // 10개 이상이면 더 있을 수 있음
-                        )
-                    }
-                    is MovieResult.Error -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoadingMore = false,
-                            error = "추가 데이터 로드 실패: ${result.message}"
-                        )
-                    }
-                    is MovieResult.Empty -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoadingMore = false,
-                            hasMoreData = false
-                        )
-                    }
-                    is MovieResult.Loading -> {
-                        // 이미 isLoadingMore로 로딩 상태 표시 중
+                    is MovieResult.Success -> handleLoadMoreSuccess(
+                        newMovies = result.data,
+                        currentPage = currentState.currentPage
+                    )
+
+                    is MovieResult.Error -> handleError(
+                        message = result.message,
+                        prefix = "추가 데이터 로드 실패",
+                        isLoadMore = true
+                    )
+
+                    is MovieResult.Empty -> handleLoadMoreEmpty()
+                    is MovieResult.Loading -> { /* 이미 isLoadingMore로 처리 중 */
                     }
                 }
             }
             .launchIn(viewModelScope)
     }
-    
+
+    // ==================== 즐겨찾기 관련 함수들 ====================
+
     // 즐겨찾기 상태 관찰
     private fun observeFavoriteMovies() {
         getAllFavoriteMoviesUseCase()
             .onEach { favoriteMovies ->
                 val favoriteMovieCds = favoriteMovies.map { it.movie.movieCd }.toSet()
-                _uiState.value = _uiState.value.copy(favoriteMovies = favoriteMovieCds)
+                _uiState.update { state ->
+                    state.copy(favoriteMovies = favoriteMovieCds)
+                }
             }
             .launchIn(viewModelScope)
     }
-    
-    // 즐겨찾기 on/off 기능
+
+    // 즐겨찾기
     fun toggleFavorite(movieWithPoster: MovieWithPoster) {
         viewModelScope.launch {
             try {
-                val isFavorite = _uiState.value.favoriteMovies.contains(movieWithPoster.movie.movieCd)
-                
+                val isFavorite =
+                    _uiState.value.favoriteMovies.contains(movieWithPoster.movie.movieCd)
+
                 if (isFavorite) {
-                    // 즐겨찾기 상태라면 제거
-                    removeFavoriteMovieUseCase(movieWithPoster.movie.movieCd)
+                    removeFavoriteMovieUseCase(movieCd = movieWithPoster.movie.movieCd)
                 } else {
-                    // 즐겨찾기가 아니라면 추가
-                    addFavoriteMovieUseCase(movieWithPoster)
+                    addFavoriteMovieUseCase(movie = movieWithPoster)
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = "즐겨찾기 처리 중 오류가 발생했습니다: ${e.message}")
+                handleError(message = e.message ?: "Unknown error", prefix = "즐겨찾기 처리 중 오류")
             }
+        }
+    }
+
+    // ==================== UI 상태 관리 ====================
+
+    // 에러 메시지 표시
+    fun clearError() {
+        _uiState.update { state ->
+            state.copy(error = null)
+        }
+    }
+
+    // 로딩 상태 표시
+    private fun showLoading() {
+        _uiState.update { state ->
+            state.copy(isLoading = true, error = null)
+        }
+    }
+
+    // 공통 에러 처리 함수
+    private fun handleError(message: String, prefix: String, isLoadMore: Boolean = false) {
+        _uiState.update { state ->
+            state.copy(
+                isLoading = if (!isLoadMore) false else state.isLoading,
+                isLoadingMore = if (isLoadMore) false else state.isLoadingMore,
+                error = "$prefix: $message"
+            )
+        }
+    }
+
+    // 검색 결과 초기화
+    private fun clearSearchResults() {
+        _uiState.update {
+            it.copy(
+                movies = emptyList(),
+                processedMovies = emptyList(),
+                isLoading = false,
+                error = null
+            )
+        }
+    }
+
+    // 검색 상태 초기화
+    private fun resetSearchState() {
+        _uiState.update {
+            it.copy(
+                currentPage = 1,
+                hasMoreData = true,
+                movies = emptyList(),
+                processedMovies = emptyList()
+            )
+        }
+    }
+
+    // ==================== 검색 결과 처리 함수들 ====================
+
+    // 검색 성공 처리
+    private fun handleSearchSuccess(movies: List<MovieWithPoster>) {
+        val processedMovies = processMoviesForDisplay(movies = movies)
+        _uiState.update { state ->
+            state.copy(
+                movies = movies,
+                processedMovies = processedMovies,
+                isLoading = false,
+                error = null,
+                hasMoreData = movies.size >= 10
+            )
+        }
+    }
+
+    // 검색 결과 없음 처리
+    private fun handleSearchEmpty() {
+        _uiState.update { state ->
+            state.copy(
+                movies = emptyList(),
+                processedMovies = emptyList(),
+                isLoading = false,
+                error = "검색 결과가 없습니다",
+                hasMoreData = false
+            )
+        }
+    }
+
+    // ==================== 무한 스크롤 결과 처리 함수들 ====================
+
+    // 무한 스크롤 성공 처리
+    private fun handleLoadMoreSuccess(newMovies: List<MovieWithPoster>, currentPage: Int) {
+        val currentMovies = _uiState.value.movies
+        val allMovies = currentMovies + newMovies
+        val processedMovies = processMoviesForDisplay(movies = allMovies)
+
+        _uiState.update { state ->
+            state.copy(
+                movies = allMovies,
+                processedMovies = processedMovies,
+                isLoadingMore = false,
+                currentPage = currentPage + 1,
+                hasMoreData = newMovies.isNotEmpty() && newMovies.size >= 10
+            )
+        }
+    }
+
+    // 무한 스크롤 결과 없음 처리
+    private fun handleLoadMoreEmpty() {
+        _uiState.update { state ->
+            state.copy(
+                isLoadingMore = false,
+                hasMoreData = false
+            )
+        }
+    }
+
+    // ==================== 유틸리티 함수들 ====================
+
+    // 영화 데이터를 MovieDisplayItem으로 변환
+    private fun processMoviesForDisplay(movies: List<MovieWithPoster>): List<MovieDisplayItem> {
+        return movies.mapIndexed { index, movieWithPoster ->
+            MovieDisplayItem(
+                movieWithPoster = movieWithPoster,
+                displayType = MovieDisplayType.fromIndex(index)
+            )
         }
     }
 }
@@ -244,7 +312,7 @@ data class MovieDisplayItem(
 sealed class MovieDisplayType {
     object Poster : MovieDisplayType()
     object Text : MovieDisplayType()
-    
+
     companion object {
         fun fromIndex(index: Int): MovieDisplayType {
             return if ((index % 6) < 3) Poster else Text

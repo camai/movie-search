@@ -48,7 +48,6 @@ import com.jg.moviesearch.ui.viewmodel.MovieViewModel
 import com.jg.moviesearch.ui.viewmodel.MovieDisplayType
 import com.jg.moviesearch.ui.viewmodel.MovieUiState
 
-// SearchMovieScreen Actions
 sealed interface SearchMovieAction {
     data class UpdateSearchQuery(val query: String) : SearchMovieAction
     data class LoadMore(val lastVisibleIndex: Int) : SearchMovieAction
