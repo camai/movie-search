@@ -29,24 +29,18 @@ class MovieDetailViewModel @Inject constructor(
     private val _uiState = MutableLiveData(MovieDetailUiState())
     val uiState: LiveData<MovieDetailUiState> = _uiState
     
+    // ==================== 영화 상세 정보 관련 ====================
+    
     // 영화 상세 정보 조회
     fun getMovieDetail(movieCd: String) {
         viewModelScope.launch {
             try {
-                // Loading 상태 설정
-                _uiState.value = _uiState.value?.copy(
-                    isLoading = true,
-                    error = null
-                )
+                _uiState.value = _uiState.value?.copy(isLoading = true, error = null)
                 
-                // UseCase 호출 및 결과 처리
                 getMovieDetailUseCase(movieCd).collect { result ->
                     when (result) {
                         is MovieResult.Loading -> {
-                            _uiState.value = _uiState.value?.copy(
-                                isLoading = true,
-                                error = null
-                            )
+                            _uiState.value = _uiState.value?.copy(isLoading = true, error = null)
                         }
                         is MovieResult.Success -> {
                             _uiState.value = _uiState.value?.copy(
@@ -78,33 +72,37 @@ class MovieDetailViewModel @Inject constructor(
         }
     }
     
-    // 즐겨찾기 관찰
+    // ==================== 즐겨찾기 관련 ====================
+    
+    // 즐겨찾기 상태 관찰
     fun observeFavoriteStatus(movieCd: String) {
-        getFavoriteMovieStatusUseCase(movieCd)
+        getFavoriteMovieStatusUseCase(movieCd = movieCd)
             .onEach { isFavorite ->
                 _uiState.value = _uiState.value?.copy(isFavorite = isFavorite)
             }
             .launchIn(viewModelScope)
     }
     
+    // 즐겨찾기 토글
     fun toggleFavorite(movieCd: String, movieTitle: String, posterUrl: String?) {
         viewModelScope.launch {
             try {
                 val currentState = _uiState.value?.isFavorite ?: false
                 
                 if (currentState) {
-                    // 현재 즐겨찾기 상태라면 제거
-                    removeFavoriteMovieUseCase(movieCd)
+                    removeFavoriteMovieUseCase(movieCd = movieCd)
                 } else {
-                    // 현재 즐겨찾기가 아니라면 추가
                     val movieWithPoster = MovieWithPoster(
                         movie = Movie.notFavoriteMovie(movieCd, movieTitle),
                         posterUrl = posterUrl
                     )
-                    addFavoriteMovieUseCase(movieWithPoster)
+                    addFavoriteMovieUseCase(movie = movieWithPoster)
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value?.copy(error = "즐겨찾기 처리 중 오류가 발생했습니다: ${e.message}")
+                _uiState.value = _uiState.value?.copy(
+                    isLoading = false,
+                    error = "즐겨찾기 처리 중 오류가 발생했습니다: ${e.message}"
+                )
             }
         }
     }
