@@ -45,12 +45,16 @@ class MovieDetailPagerAdapter(
             }
 
             binding.btnFavorite.setOnClickListener {
-                onAction(MovieDetailAction.ToggleFavorite(movieCd, movieTitle, posterUrl))
+                onAction(MovieDetailAction.ToggleFavorite(
+                    movieCd = movieCd,
+                    movieTitle = movieTitle,
+                    posterUrl = posterUrl
+                ))
             }
 
             if (movieCd.isNotEmpty()) {
-                onAction(MovieDetailAction.GetMovieDetail(movieCd))
-                onAction(MovieDetailAction.ObserveFavoriteStatus(movieCd))
+                onAction(MovieDetailAction.GetMovieDetail(movieCd = movieCd))
+                onAction(MovieDetailAction.ObserveFavoriteStatus(movieCd = movieCd))
             }
         }
     }
