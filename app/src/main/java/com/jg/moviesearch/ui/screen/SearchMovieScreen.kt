@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
@@ -50,7 +51,6 @@ import com.jg.moviesearch.ui.viewmodel.MovieUiState
 
 sealed interface SearchMovieAction {
     data class UpdateSearchQuery(val query: String) : SearchMovieAction
-    data class LoadMore(val lastVisibleIndex: Int) : SearchMovieAction
     data class ToggleFavorite(val movie: MovieWithPoster) : SearchMovieAction
     data class MovieClick(val movie: MovieWithPoster, val movieList: List<MovieWithPoster>) : SearchMovieAction
     object ClearError : SearchMovieAction
@@ -66,20 +66,40 @@ fun SearchMovieRoute(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            snackbarHostState.showSnackbar(
+                message = error,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearError()
+        }
+    }
+
+    // 무한 스크롤 감지
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+            .collect { lastVisibleItemIndex ->
+                if (lastVisibleItemIndex != null) {
+                    if (viewModel.shouldLoadMore(lastVisibleItemIndex)) {
+                        viewModel.loadMoreMovies()
+                    }
+                }
+            }
+    }
+
     SearchMovieScreen(
         modifier = modifier,
         uiState = uiState,
         searchQuery = searchQuery,
         listState = listState,
+        snackbarHostState = snackbarHostState,
         onAction = { action ->
             when (action) {
-                is SearchMovieAction.UpdateSearchQuery -> viewModel.updateSearchQuery(action.query)
-                is SearchMovieAction.LoadMore -> {
-                    if (viewModel.shouldLoadMore(action.lastVisibleIndex)) {
-                        viewModel.loadMoreMovies()
-                    }
-                }
-                is SearchMovieAction.ToggleFavorite -> viewModel.toggleFavorite(action.movie)
+                is SearchMovieAction.UpdateSearchQuery -> viewModel.updateSearchQuery(query = action.query)
+                is SearchMovieAction.ToggleFavorite -> viewModel.toggleFavorite(movieWithPoster = action.movie)
                 is SearchMovieAction.MovieClick -> {
                     val originalIndex = action.movieList.indexOf(action.movie)
                     onMovieClickWithList(action.movieList, originalIndex)
@@ -97,20 +117,9 @@ fun SearchMovieScreen(
     uiState: MovieUiState,
     searchQuery: String,
     listState: LazyListState = rememberLazyListState(),
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     onAction: (SearchMovieAction) -> Unit,
 ) {
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let { error ->
-            snackbarHostState.showSnackbar(
-                message = error,
-                duration = SnackbarDuration.Short
-            )
-            onAction(SearchMovieAction.ClearError)
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -131,7 +140,7 @@ fun SearchMovieScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { newText ->
-                    onAction(SearchMovieAction.UpdateSearchQuery(newText))
+                    onAction(SearchMovieAction.UpdateSearchQuery(query = newText))
                 },
                 label = { Text("영화 검색") },
                 placeholder = { Text("영화 제목을 입력하세요") },
@@ -149,21 +158,13 @@ fun SearchMovieScreen(
                     CircularProgressIndicator()
                 }
             } else {
-                // 무한 스크롤 감지
-                LaunchedEffect(listState) {
-                    snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
-                        .collect { lastVisibleItemIndex ->
-                            if (lastVisibleItemIndex != null) {
-                                onAction(SearchMovieAction.LoadMore(lastVisibleItemIndex))
-                            }
-                        }
-                }
-                
                 LazyColumn(
                     state = listState,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(uiState.processedMovies) { index, movieDisplayItem ->
+                    itemsIndexed(items = uiState.processedMovies,
+                        key = {_, movieDisplayItem -> movieDisplayItem.movieWithPoster.movie.movieCd }
+                    ) { index, movieDisplayItem ->
                         CreateMovieCard(
                             movieDisplayItem = movieDisplayItem,
                             uiState = uiState,
@@ -174,26 +175,14 @@ fun SearchMovieScreen(
                     // 로딩 더 보기 상태 표시
                     if (uiState.isLoadingMore) {
                         item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
-                            }
+                            CircleProgressbar()
                         }
                     }
                     
                     // 마지막 아이템 다음에 Gray 패딩 영역 추가
                     if (uiState.processedMovies.isNotEmpty() && !uiState.isLoadingMore) {
                         item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(16.dp)
-                                    .background(Color.Gray)
-                            )
+                            LastItemPadding()
                         }
                     }
                 }
@@ -203,21 +192,46 @@ fun SearchMovieScreen(
 }
 
 @Composable
+private fun CircleProgressbar() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+private fun LastItemPadding() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(16.dp)
+            .background(Color.Gray)
+    )
+}
+
+@Composable
 private fun CreateMovieCard(
     movieDisplayItem: MovieDisplayItem,
     uiState: MovieUiState,
     onAction: (SearchMovieAction) -> Unit
 ) {
     val movieWithPoster = movieDisplayItem.movieWithPoster
-    val isFavorite = uiState.favoriteMovies.contains(movieWithPoster.movie.movieCd)
+    val isFavorite by remember(movieWithPoster.movie.movieCd, uiState.favoriteMovies) {
+        derivedStateOf {
+            uiState.favoriteMovies.contains(movieWithPoster.movie.movieCd)
+        }
+    }
     
-    // 공통 클릭 핸들러
     val onMovieClick = {
-        onAction(SearchMovieAction.MovieClick(movieWithPoster, uiState.movies))
+        onAction(SearchMovieAction.MovieClick(movie = movieWithPoster, movieList = uiState.movies))
     }
     
     val onFavoriteClick = {
-        onAction(SearchMovieAction.ToggleFavorite(movieWithPoster))
+        onAction(SearchMovieAction.ToggleFavorite(movie = movieWithPoster))
     }
     
     when (movieDisplayItem.displayType) {
