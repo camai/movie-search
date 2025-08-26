@@ -44,17 +44,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
+import com.jg.moviesearch.ui.model.SearchMovieAction
 import com.jg.moviesearch.ui.viewmodel.MovieDisplayItem
 import com.jg.moviesearch.ui.viewmodel.MovieViewModel
 import com.jg.moviesearch.ui.viewmodel.MovieDisplayType
 import com.jg.moviesearch.ui.viewmodel.MovieUiState
-
-sealed interface SearchMovieAction {
-    data class UpdateSearchQuery(val query: String) : SearchMovieAction
-    data class ToggleFavorite(val movie: MovieWithPoster) : SearchMovieAction
-    data class MovieClick(val movie: MovieWithPoster, val movieList: List<MovieWithPoster>) : SearchMovieAction
-    object ClearError : SearchMovieAction
-}
 
 @Composable
 fun SearchMovieRoute(

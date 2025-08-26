@@ -6,6 +6,7 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.jg.moviesearch.R
 import com.jg.moviesearch.databinding.ActivityMovieDetailPageBinding
+import com.jg.moviesearch.ui.model.MovieDetailAction
 
 class MovieDetailPagerAdapter(
     private val movieCds: List<String>,

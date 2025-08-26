@@ -14,14 +14,11 @@ import com.jg.moviesearch.core.model.domain.MovieDetail
 import com.jg.moviesearch.databinding.ActivityMovieDetailBinding
 import com.jg.moviesearch.databinding.ActivityMovieDetailPageBinding
 import com.jg.moviesearch.ui.activity.MovieDetailPagerAdapter
+import com.jg.moviesearch.ui.model.MovieData
+import com.jg.moviesearch.ui.model.MovieDetailAction
+import com.jg.moviesearch.ui.viewmodel.MovieDetailUiState
 import com.jg.moviesearch.ui.viewmodel.MovieDetailViewModel
 import dagger.hilt.android.AndroidEntryPoint
-
-sealed interface MovieDetailAction {
-    data class GetMovieDetail(val movieCd: String) : MovieDetailAction
-    data class ObserveFavoriteStatus(val movieCd: String) : MovieDetailAction
-    data class ToggleFavorite(val movieCd: String, val movieTitle: String, val posterUrl: String?) : MovieDetailAction
-}
 
 @AndroidEntryPoint
 class MovieDetailActivity : AppCompatActivity() {
@@ -29,14 +26,7 @@ class MovieDetailActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMovieDetailBinding
     private var currentPosition: Int = 0
     
-    // 데이터를 하나의 클래스로 그룹화
-    private data class MovieData(
-        val movieCds: List<String>,
-        val movieTitles: List<String>,
-        val posterUrls: List<String?>
-    )
-    
-    private var movieData: MovieData? = null
+    private var movieData: MovieData = MovieData.EMPTY
     private lateinit var viewModel: MovieDetailViewModel
 
     companion object {
@@ -76,12 +66,12 @@ class MovieDetailActivity : AppCompatActivity() {
     }
 
     private fun extractIntentData() {
-        val movieCds = intent.getStringArrayListExtra(EXTRA_MOVIE_CDS) ?: emptyList()
-        val movieTitles = intent.getStringArrayListExtra(EXTRA_MOVIE_TITLES) ?: emptyList()
-        val posterUrls = intent.getStringArrayListExtra(EXTRA_POSTER_URLS)
-            ?.map { url -> if (url.isEmpty()) null else url } ?: emptyList()
-        
-        movieData = MovieData(movieCds, movieTitles, posterUrls)
+        movieData = MovieData(
+            movieCds = intent.getStringArrayListExtra(EXTRA_MOVIE_CDS) ?: emptyList(),
+            movieTitles = intent.getStringArrayListExtra(EXTRA_MOVIE_TITLES) ?: emptyList(),
+            posterUrls = intent.getStringArrayListExtra(EXTRA_POSTER_URLS)
+                ?.map { if (it.isEmpty()) null else it } ?: emptyList()
+        )
         currentPosition = intent.getIntExtra(EXTRA_CURRENT_POSITION, 0)
     }
 
@@ -93,9 +83,15 @@ class MovieDetailActivity : AppCompatActivity() {
                 posterUrls = data.posterUrls,
                 onAction = { action ->
                     when (action) {
-                        is MovieDetailAction.GetMovieDetail -> viewModel.getMovieDetail(action.movieCd)
-                        is MovieDetailAction.ObserveFavoriteStatus -> viewModel.observeFavoriteStatus(action.movieCd)
-                        is MovieDetailAction.ToggleFavorite -> viewModel.toggleFavorite(action.movieCd, action.movieTitle, action.posterUrl)
+                        is MovieDetailAction.GetMovieDetail -> viewModel.getMovieDetail(movieCd = action.movieCd)
+                        is MovieDetailAction.ObserveFavoriteStatus -> viewModel.observeFavoriteStatus(
+                            movieCd = action.movieCd
+                        )
+                        is MovieDetailAction.ToggleFavorite -> viewModel.toggleFavorite(
+                            movieCd = action.movieCd,
+                            movieTitle = action.movieTitle,
+                            posterUrl = action.posterUrl
+                        )
                     }
                 }
             )
@@ -112,7 +108,7 @@ class MovieDetailActivity : AppCompatActivity() {
     private fun observeUiState() {
         viewModel.uiState.observe(this) { uiState ->
             // 로딩 상태 업데이트 (현재 페이지의 progressBar)
-            updateProgressBar(uiState.isLoading)
+            updateProgressBar(isLoading = uiState.isLoading)
             
             // 에러 처리
             uiState.error?.let { error ->
@@ -121,37 +117,37 @@ class MovieDetailActivity : AppCompatActivity() {
             
             // 영화 상세 정보 업데이트
             uiState.movieDetail?.let { movieDetail ->
-                updateCurrentPageUI(movieDetail)
+                updateCurrentPageUI(movieDetail = movieDetail)
             }
             
             // 즐겨찾기 상태 업데이트
-            updateFavoriteButton(uiState.isFavorite)
+            updateFavoriteButton(isFavorite = uiState.isFavorite)
         }
     }
     
     private fun updateCurrentPageUI(movieDetail: MovieDetail) {
         withCurrentPage { pageBinding ->
-            pageBinding.tvMovieTitle.text = movieDetail.movieNm
-            pageBinding.tvMovieType.text = movieDetail.typeNm
-            pageBinding.tvOpenDate.text = movieDetail.openDt
-            pageBinding.tvShowTime.text = "${movieDetail.showTm}분"
-            pageBinding.tvDirector.text = movieDetail.directors.joinToString(", ") { it.peopleNm }
-            pageBinding.tvActors.text = movieDetail.actors.joinToString(", ") { it.peopleNm }
-            pageBinding.tvGenre.text = movieDetail.genres.joinToString(", ") { it.genreNm }
-            pageBinding.tvNation.text = movieDetail.nations.joinToString(", ") { it.nationNm }
-            pageBinding.tvWatchGrade.text = movieDetail.prdtStatNm
-            pageBinding.tvPrdtYear.text = movieDetail.prdtYear
+            pageBinding.apply {
+                tvMovieTitle.text = movieDetail.movieNm
+                tvMovieType.text = movieDetail.typeNm
+                tvOpenDate.text = movieDetail.openDt
+                tvShowTime.text = "${movieDetail.showTm}분"
+                tvDirector.text = movieDetail.directors.joinToString(", ") { it.peopleNm }
+                tvActors.text = movieDetail.actors.joinToString(", ") { it.peopleNm }
+                tvGenre.text = movieDetail.genres.joinToString(", ") { it.genreNm }
+                tvNation.text = movieDetail.nations.joinToString(", ") { it.nationNm }
+                tvWatchGrade.text = movieDetail.prdtStatNm
+            }
         }
     }
     
     private fun withCurrentPage(action: (ActivityMovieDetailPageBinding) -> Unit) {
-        val currentPage = binding.viewPager.getChildAt(0)
-        if (currentPage != null) {
+        binding.viewPager.getChildAt(0)?.let { currentPage ->
             val pageBinding = ActivityMovieDetailPageBinding.bind(currentPage)
             action(pageBinding)
         }
     }
-    
+
     private fun updateProgressBar(isLoading: Boolean) {
         withCurrentPage { pageBinding ->
             pageBinding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
