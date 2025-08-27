@@ -1,21 +1,24 @@
 package com.jg.moviesearch.ui.viewmodel
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import com.jg.moviesearch.core.domain.usecase.GetMovieDetailUseCase
 import com.jg.moviesearch.core.domain.usecase.AddFavoriteMovieUseCase
-import com.jg.moviesearch.core.domain.usecase.RemoveFavoriteMovieUseCase
 import com.jg.moviesearch.core.domain.usecase.GetFavoriteMovieStatusUseCase
+import com.jg.moviesearch.core.domain.usecase.GetMovieDetailUseCase
+import com.jg.moviesearch.core.domain.usecase.RemoveFavoriteMovieUseCase
 import com.jg.moviesearch.core.model.MovieResult
 import com.jg.moviesearch.core.model.domain.Movie
 import com.jg.moviesearch.core.model.domain.MovieDetail
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
+import com.jg.moviesearch.ui.model.MovieDetailUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -25,92 +28,97 @@ class MovieDetailViewModel @Inject constructor(
     private val removeFavoriteMovieUseCase: RemoveFavoriteMovieUseCase,
     private val getFavoriteMovieStatusUseCase: GetFavoriteMovieStatusUseCase
 ) : ViewModel() {
-    
-    private val _uiState = MutableLiveData(MovieDetailUiState())
-    val uiState: LiveData<MovieDetailUiState> = _uiState
-    
+
+    private val _uiState = MutableStateFlow(MovieDetailUiState.EMPTY)
+    val uiState: StateFlow<MovieDetailUiState> = _uiState.asStateFlow()
+
+    private val _movieDetail = MutableStateFlow<MovieDetail?>(null)
+    val movieDetail: StateFlow<MovieDetail?> = _movieDetail.asStateFlow()
+
     // ==================== 영화 상세 정보 관련 ====================
-    
+
     // 영화 상세 정보 조회
     fun getMovieDetail(movieCd: String) {
         viewModelScope.launch {
             try {
-                _uiState.value = _uiState.value?.copy(isLoading = true, error = null)
-                
-                getMovieDetailUseCase(movieCd).collect { result ->
+                showLoading()
+
+                getMovieDetailUseCase(movieCd = movieCd).collect { result ->
                     when (result) {
                         is MovieResult.Loading -> {
-                            _uiState.value = _uiState.value?.copy(isLoading = true, error = null)
+                            showLoading()
                         }
+
                         is MovieResult.Success -> {
-                            _uiState.value = _uiState.value?.copy(
-                                movieDetail = result.data,
-                                isLoading = false,
-                                error = null
-                            )
+                            _movieDetail.update { result.data }
+                            _uiState.update { state ->
+                                state.copy(
+                                    isLoading = false,
+                                    error = null
+                                )
+                            }
                         }
+
                         is MovieResult.Error -> {
-                            _uiState.value = _uiState.value?.copy(
-                                isLoading = false,
-                                error = "영화 상세 정보를 불러올 수 없습니다: ${result.message}"
-                            )
+                            handleError(message = "영화 상세 정보를 불러올 수 없습니다")
                         }
+
                         is MovieResult.Empty -> {
-                            _uiState.value = _uiState.value?.copy(
-                                isLoading = false,
-                                error = "영화 상세 정보가 없습니다"
-                            )
+                            handleError(message = "영화 상세 정보가 없습니다")
                         }
                     }
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value?.copy(
-                    isLoading = false,
-                    error = "오류가 발생했습니다: ${e.message}"
-                )
+                handleError(message = "영화 상세 정보를 불러올 수 없습니다: ${e.message}")
             }
         }
     }
-    
+
     // ==================== 즐겨찾기 관련 ====================
-    
+
     // 즐겨찾기 상태 관찰
     fun observeFavoriteStatus(movieCd: String) {
         getFavoriteMovieStatusUseCase(movieCd = movieCd)
             .onEach { isFavorite ->
-                _uiState.value = _uiState.value?.copy(isFavorite = isFavorite)
+                _uiState.update { state ->
+                    state.copy(isFavorite = isFavorite)
+                }
             }
             .launchIn(viewModelScope)
     }
-    
+
     // 즐겨찾기 토글
     fun toggleFavorite(movieCd: String, movieTitle: String, posterUrl: String?) {
         viewModelScope.launch {
             try {
-                val currentState = _uiState.value?.isFavorite ?: false
-                
-                if (currentState) {
+                if (_uiState.value.isFavorite) {
                     removeFavoriteMovieUseCase(movieCd = movieCd)
                 } else {
-                    val movieWithPoster = MovieWithPoster(
-                        movie = Movie.notFavoriteMovie(movieCd, movieTitle),
-                        posterUrl = posterUrl
+                    addFavoriteMovieUseCase(
+                        movie =
+                            MovieWithPoster(
+                                movie = Movie.notFavoriteMovie(movieCd, movieTitle),
+                                posterUrl = posterUrl
+                            )
                     )
-                    addFavoriteMovieUseCase(movie = movieWithPoster)
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value?.copy(
-                    isLoading = false,
-                    error = "즐겨찾기 처리 중 오류가 발생했습니다: ${e.message}"
-                )
+                handleError(message = "즐겨찾기 처리 중 오류가 발생했습니다: ${e.message}")
             }
         }
     }
-}
 
-data class MovieDetailUiState(
-    val movieDetail: MovieDetail? = null,
-    val isLoading: Boolean = false,
-    val error: String? = null,
-    val isFavorite: Boolean = false
-) 
+    // ==================== UI 상태 관리 ====================
+
+    private fun showLoading() {
+        _uiState.update { state ->
+            state.copy(isLoading = true, error = null)
+        }
+    }
+
+    private fun handleError(message: String) {
+        _uiState.update { state ->
+            state.copy(isLoading = false, error = message)
+        }
+    }
+}

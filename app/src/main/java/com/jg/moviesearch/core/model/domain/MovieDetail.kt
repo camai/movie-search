@@ -16,7 +16,24 @@ data class MovieDetail(
     val genres: List<Genre>,
     val directors: List<Director>,
     val actors: List<Actor>
-)
+) {
+    companion object {
+        val EMPTY = MovieDetail(
+            movieCd = "",
+            movieNm = "",
+            movieNmEn = "",
+            prdtYear = "",
+            showTm = "",
+            openDt = "",
+            prdtStatNm = "",
+            typeNm = "",
+            nations = emptyList(),
+            genres = emptyList(),
+            directors = emptyList(),
+            actors = emptyList()
+        )
+    }
+}
 
 data class Nation(
     val nationNm: String
