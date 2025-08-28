@@ -95,16 +95,15 @@ class MovieDetailActivity : AppCompatActivity() {
 
     private fun initializeStateObservation() {
         lifecycleScope.launch {
-            launch {
-                lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            lifecycle.repeatOnLifecycle(state = Lifecycle.State.STARTED) {
+                launch {
                     viewModel.uiState.collect { uiState ->
                         updateUiState(uiState = uiState)
                     }
                 }
             }
-
-            launch {
-                lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
                     viewModel.movieDetail.collect { movieDetail ->
                         updateMovieDetail(movieDetail = movieDetail)
                     }
