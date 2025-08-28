@@ -32,8 +32,8 @@ class MovieDetailViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MovieDetailUiState.EMPTY)
     val uiState: StateFlow<MovieDetailUiState> = _uiState.asStateFlow()
 
-    private val _movieDetail = MutableStateFlow<MovieDetail?>(null)
-    val movieDetail: StateFlow<MovieDetail?> = _movieDetail.asStateFlow()
+    private val _movieDetail = MutableStateFlow(MovieDetail.EMPTY)
+    val movieDetail: StateFlow<MovieDetail> = _movieDetail.asStateFlow()
 
     // ==================== 영화 상세 정보 관련 ====================
 

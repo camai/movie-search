@@ -17,6 +17,7 @@ import com.jg.moviesearch.ui.model.MovieDetailUiState
 import com.jg.moviesearch.ui.viewmodel.MovieDetailViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import androidx.viewpager2.widget.ViewPager2
 
 @AndroidEntryPoint
 class MovieDetailActivity : AppCompatActivity() {
@@ -25,19 +26,20 @@ class MovieDetailActivity : AppCompatActivity() {
     private var currentPosition: Int = 0
     private var movieData: MovieData = MovieData.EMPTY
     private lateinit var viewModel: MovieDetailViewModel
+    private lateinit var pagerAdapter: MovieDetailPagerAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMovieDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // ViewModel 초기화
         viewModel = ViewModelProvider(this)[MovieDetailViewModel::class.java]
 
         extractIntentData()
         setupViewPager()
         setupClickListeners()
         initializeStateObservation()
+        loadInitialMovieDetail()
     }
 
     private fun extractIntentData() {
@@ -53,20 +55,41 @@ class MovieDetailActivity : AppCompatActivity() {
     private fun setupViewPager() {
         if (movieData == MovieData.EMPTY) return
 
-        movieData.apply {
-            binding.viewPager.adapter = createPagerAction()
-            binding.viewPager.setCurrentItem(currentPosition, false)
+        pagerAdapter = MovieDetailPagerAdapter { action ->
+            handlePagerAction(action)
+        }
 
+        pagerAdapter.setInitialData(
+            movieCds = movieData.movieCds,
+            movieTitles = movieData.movieTitles,
+            posterUrls = movieData.posterUrls
+        )
+
+        binding.viewPager.apply {
+            adapter = pagerAdapter
+            setCurrentItem(currentPosition, false)
+
+            registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+                override fun onPageSelected(position: Int) {
+                    super.onPageSelected(position)
+                    currentPosition = position // 현재 위치 업데이트
+
+                    val movieCd = movieData.movieCds.getOrNull(position)
+                    movieCd?.let {
+                        viewModel.getMovieDetail(movieCd = it)
+                        viewModel.observeFavoriteStatus(movieCd = it)
+                    }
+                }
+            })
         }
     }
 
-    private fun createPagerAction(): MovieDetailPagerAdapter {
-        return MovieDetailPagerAdapter(
-            movieCds = movieData.movieCds,
-            movieTitles = movieData.movieTitles,
-            posterUrls = movieData.posterUrls,
-            onAction = { action -> handlePagerAction(action) }
-        )
+    private fun loadInitialMovieDetail() {
+        val initialMovieCd = movieData.movieCds.getOrNull(currentPosition)
+        initialMovieCd?.let {
+            viewModel.getMovieDetail(movieCd = it)
+            viewModel.observeFavoriteStatus(movieCd = it)
+        }
     }
 
     private fun handlePagerAction(action: MovieDetailAction) {
@@ -101,8 +124,7 @@ class MovieDetailActivity : AppCompatActivity() {
                         updateUiState(uiState = uiState)
                     }
                 }
-            }
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+
                 launch {
                     viewModel.movieDetail.collect { movieDetail ->
                         updateMovieDetail(movieDetail = movieDetail)
@@ -124,11 +146,11 @@ class MovieDetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateMovieDetail(movieDetail: MovieDetail?) {
+    private fun updateMovieDetail(movieDetail: MovieDetail) {
         val currentPosition = binding.viewPager.currentItem
-        (binding.viewPager.adapter as? MovieDetailPagerAdapter)?.updateCurrentPageMovieDetail(
-            movieDetail,
-            currentPosition
+        (binding.viewPager.adapter as? MovieDetailPagerAdapter)?.updateMovieDetail(
+            position = currentPosition,
+            movieDetail = movieDetail
         )
     }
 

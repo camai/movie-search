@@ -2,53 +2,77 @@ package com.jg.moviesearch.ui.activity
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.jg.moviesearch.R
 import com.jg.moviesearch.core.model.domain.MovieDetail
 import com.jg.moviesearch.databinding.ActivityMovieDetailPageBinding
 import com.jg.moviesearch.ui.model.MovieDetailAction
+import com.jg.moviesearch.ui.model.MoviePageItem
+import com.jg.moviesearch.ui.utils.MoviePageDiffCallback
 
 class MovieDetailPagerAdapter(
-    private val movieCds: List<String>,
-    private val movieTitles: List<String>,
-    private val posterUrls: List<String?>,
     private val onAction: (MovieDetailAction) -> Unit
 ) : RecyclerView.Adapter<MovieDetailPagerAdapter.MovieDetailViewHolder>() {
 
-    override fun getItemCount(): Int = movieCds.size
+    private var items: List<MoviePageItem> = emptyList()
+
+    override fun getItemCount(): Int = items.size
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MovieDetailViewHolder {
         val binding = ActivityMovieDetailPageBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return MovieDetailViewHolder(binding)
     }
 
-    private var currentMovieDetail: MovieDetail? = null
-    private var currentPagePosition: Int = 0
+    fun setInitialData(
+        movieCds: List<String>,
+        movieTitles: List<String>,
+        posterUrls: List<String?>
+    ) {
+        val initialItems = movieCds.mapIndexed { index, movieCd ->
+            MoviePageItem(
+                movieCd = movieCd,
+                movieTitle = movieTitles.getOrNull(index) ?: "",
+                posterUrl = posterUrls.getOrNull(index),
+                movieDetail = MovieDetail.EMPTY
+            )
+        }
+        updateItems(initialItems)
+    }
 
-    // Activity에서 호출할 public 메서드
-    fun updateCurrentPageMovieDetail(movieDetail: MovieDetail?, currentPosition: Int) {
-        currentMovieDetail = movieDetail
-        currentPagePosition = currentPosition
-        notifyItemChanged(currentPosition) // 현재 페이지만 업데이트
+    fun updateItems(newItems: List<MoviePageItem>) {
+        val diffCallback = MoviePageDiffCallback(items, newItems)
+        val diffResult = DiffUtil.calculateDiff(diffCallback)
+
+        items = newItems
+        diffResult.dispatchUpdatesTo(this)
+    }
+
+    fun updateMovieDetail(position: Int, movieDetail: MovieDetail) {
+        if (position in items.indices) {
+            val newItems = items.toMutableList().apply {
+                this[position] = this[position].copy(movieDetail = movieDetail)
+            }
+            updateItems(newItems)
+        }
     }
 
     override fun onBindViewHolder(holder: MovieDetailViewHolder, position: Int) {
-        val movieCd = movieCds.getOrNull(position) ?: ""
-        val movieTitle = movieTitles.getOrNull(position) ?: ""
-        val posterUrl = posterUrls.getOrNull(position)
+        val item = items.getOrNull(position) ?: run {
+            // 로그로 문제 상황 확인
+            println("Warning: Invalid position $position, items size: ${items.size}")
+            return
+        }
 
-        // 현재 페이지에만 movieDetail 전달
-        val movieDetail = if (position == currentPagePosition) currentMovieDetail else null
-
-        holder.bind(movieCd, movieTitle, posterUrl, movieDetail)
+        holder.bind(item)
     }
 
     inner class MovieDetailViewHolder(private val binding: ActivityMovieDetailPageBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(movieCd: String, movieTitle: String, posterUrl: String?, movieDetail: MovieDetail?) {
-            binding.tvMovieTitle.text = movieTitle
+        fun bind(item: MoviePageItem) {
+            binding.tvMovieTitle.text = item.movieTitle
 
-            posterUrl?.let { url ->
+            item.posterUrl?.let { url ->
                 if (url.isNotEmpty()) {
                     binding.ivPoster.load(url) {
                         placeholder(R.drawable.ic_movie_placeholder)
@@ -61,22 +85,14 @@ class MovieDetailPagerAdapter(
                 binding.ivPoster.setImageResource(R.drawable.ic_movie_placeholder)
             }
 
-            // 영화 상세 정보 바인딩
-            movieDetail?.let {
-                updateMovieDetailUI(movieDetail = it)
-            }
+            updateMovieDetailUI(movieDetail = item.movieDetail)
 
             binding.btnFavorite.setOnClickListener {
                 onAction(MovieDetailAction.ToggleFavorite(
-                    movieCd = movieCd,
-                    movieTitle = movieTitle,
-                    posterUrl = posterUrl
+                    movieCd = item.movieCd,
+                    movieTitle = item.movieTitle,
+                    posterUrl = item.posterUrl
                 ))
-            }
-
-            if (movieCd.isNotEmpty()) {
-                onAction(MovieDetailAction.GetMovieDetail(movieCd = movieCd))
-                onAction(MovieDetailAction.ObserveFavoriteStatus(movieCd = movieCd))
             }
         }
 
