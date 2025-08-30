@@ -51,14 +51,9 @@ class MovieViewModel @Inject constructor(
     private fun setupRealTimeSearch() {
         _searchQuery
             .debounce(300)
-            .distinctUntilChanged()
             .filter { it.trim().length >= 2 }
             .onEach { query ->
-                if (query.isBlank()) {
-                    clearSearchResults()
-                } else {
-                    searchMoviesInternal(query = query.trim())
-                }
+                searchMoviesInternal(query = query.trim())
             }
             .launchIn(viewModelScope)
     }

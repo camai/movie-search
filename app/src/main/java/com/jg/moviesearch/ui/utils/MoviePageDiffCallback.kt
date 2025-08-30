@@ -1,11 +1,11 @@
 package com.jg.moviesearch.ui.utils
 
 import androidx.recyclerview.widget.DiffUtil
-import com.jg.moviesearch.ui.model.MoviePageItem
+import com.jg.moviesearch.ui.model.MovieDetailPageItemUiState
 
 class MoviePageDiffCallback(
-    private val oldList: List<MoviePageItem>,
-    private val newList: List<MoviePageItem>
+    private val oldList: List<MovieDetailPageItemUiState>,
+    private val newList: List<MovieDetailPageItemUiState>
 ) : DiffUtil.Callback() {
 
     override fun getOldListSize(): Int = oldList.size

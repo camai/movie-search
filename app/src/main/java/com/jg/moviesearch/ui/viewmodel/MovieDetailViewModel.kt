@@ -32,9 +32,6 @@ class MovieDetailViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MovieDetailUiState.EMPTY)
     val uiState: StateFlow<MovieDetailUiState> = _uiState.asStateFlow()
 
-    private val _movieDetail = MutableStateFlow(MovieDetail.EMPTY)
-    val movieDetail: StateFlow<MovieDetail> = _movieDetail.asStateFlow()
-
     // ==================== 영화 상세 정보 관련 ====================
 
     // 영화 상세 정보 조회
@@ -50,11 +47,11 @@ class MovieDetailViewModel @Inject constructor(
                         }
 
                         is MovieResult.Success -> {
-                            _movieDetail.update { result.data }
                             _uiState.update { state ->
                                 state.copy(
                                     isLoading = false,
-                                    error = null
+                                    error = null,
+                                    movieDetailItem = result.data
                                 )
                             }
                         }

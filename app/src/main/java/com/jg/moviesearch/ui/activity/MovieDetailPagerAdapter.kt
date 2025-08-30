@@ -9,14 +9,14 @@ import com.jg.moviesearch.R
 import com.jg.moviesearch.core.model.domain.MovieDetail
 import com.jg.moviesearch.databinding.ActivityMovieDetailPageBinding
 import com.jg.moviesearch.ui.model.MovieDetailAction
-import com.jg.moviesearch.ui.model.MoviePageItem
+import com.jg.moviesearch.ui.model.MovieDetailPageItemUiState
 import com.jg.moviesearch.ui.utils.MoviePageDiffCallback
 
 class MovieDetailPagerAdapter(
     private val onAction: (MovieDetailAction) -> Unit
 ) : RecyclerView.Adapter<MovieDetailPagerAdapter.MovieDetailViewHolder>() {
 
-    private var items: List<MoviePageItem> = emptyList()
+    private var items: List<MovieDetailPageItemUiState> = emptyList()
 
     override fun getItemCount(): Int = items.size
 
@@ -31,7 +31,7 @@ class MovieDetailPagerAdapter(
         posterUrls: List<String?>
     ) {
         val initialItems = movieCds.mapIndexed { index, movieCd ->
-            MoviePageItem(
+            MovieDetailPageItemUiState(
                 movieCd = movieCd,
                 movieTitle = movieTitles.getOrNull(index) ?: "",
                 posterUrl = posterUrls.getOrNull(index),
@@ -41,7 +41,7 @@ class MovieDetailPagerAdapter(
         updateItems(initialItems)
     }
 
-    fun updateItems(newItems: List<MoviePageItem>) {
+    fun updateItems(newItems: List<MovieDetailPageItemUiState>) {
         val diffCallback = MoviePageDiffCallback(items, newItems)
         val diffResult = DiffUtil.calculateDiff(diffCallback)
 
@@ -69,7 +69,7 @@ class MovieDetailPagerAdapter(
     }
 
     inner class MovieDetailViewHolder(private val binding: ActivityMovieDetailPageBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(item: MoviePageItem) {
+        fun bind(item: MovieDetailPageItemUiState) {
             binding.tvMovieTitle.text = item.movieTitle
 
             item.posterUrl?.let { url ->
