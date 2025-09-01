@@ -8,15 +8,19 @@ import com.jg.moviesearch.core.domain.usecase.GetMovieDetailUseCase
 import com.jg.moviesearch.core.domain.usecase.RemoveFavoriteMovieUseCase
 import com.jg.moviesearch.core.model.MovieResult
 import com.jg.moviesearch.core.model.domain.Movie
-import com.jg.moviesearch.core.model.domain.MovieDetail
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
+import com.jg.moviesearch.ui.model.MovieData
+import com.jg.moviesearch.ui.model.MovieDetailPageItemUiState
+import com.jg.moviesearch.ui.model.MovieDetailUiEffect
 import com.jg.moviesearch.ui.model.MovieDetailUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -32,71 +36,73 @@ class MovieDetailViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MovieDetailUiState.EMPTY)
     val uiState: StateFlow<MovieDetailUiState> = _uiState.asStateFlow()
 
+    private val _uiEffect = Channel<MovieDetailUiEffect>()
+    val uiEffect = _uiEffect.receiveAsFlow()
+
     // ==================== 영화 상세 정보 관련 ====================
 
-    // 영화 상세 정보 조회
-    fun getMovieDetail(movieCd: String) {
+    fun initializePages(movie: MovieData, initialPosition: Int) {
+        val initialPages = movie.movieCds.mapIndexed { index, movieCd ->
+            MovieDetailPageItemUiState(
+                movieCd = movieCd,
+                movieTitle = movie.movieTitles.getOrNull(index) ?: "",
+                posterUrl = movie.posterUrls.getOrNull(index)
+            )
+        }
+        _uiState.update { state ->
+            state.copy(
+                pages = initialPages,
+                currentPosition = initialPosition
+            )
+        }
+
+        loadPageDetails(initialPosition)
+    }
+
+    fun loadPageDetails(position: Int) {
+        val page = _uiState.value.pages.getOrNull(position) ?: return
+        if (page.movieDetail != null || page.isLoading) return
+
         viewModelScope.launch {
-            try {
-                showLoading()
-
-                getMovieDetailUseCase(movieCd = movieCd).collect { result ->
-                    when (result) {
-                        is MovieResult.Loading -> {
-                            showLoading()
-                        }
-
-                        is MovieResult.Success -> {
-                            _uiState.update { state ->
-                                state.copy(
-                                    isLoading = false,
-                                    error = null,
-                                    movieDetailItem = result.data
-                                )
-                            }
-                        }
-
-                        is MovieResult.Error -> {
-                            handleError(message = "영화 상세 정보를 불러올 수 없습니다")
-                        }
-
-                        is MovieResult.Empty -> {
-                            handleError(message = "영화 상세 정보가 없습니다")
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                handleError(message = "영화 상세 정보를 불러올 수 없습니다: ${e.message}")
+            updatePageState(position = position) {
+                it.copy(isLoading = true)
             }
+
+            getMovieDetailUseCase(movieCd = page.movieCd).collect { result ->
+                val detail = if (result is MovieResult.Success) result.data else null
+                updatePageState(position = position) {
+                    it.copy(isLoading = false, movieDetail = detail)
+                }
+            }
+
+            getFavoriteMovieStatusUseCase(movieCd = page.movieCd)
+                .onEach { isFavorite ->
+                    updatePageState(position = position) {
+                        it.copy(isFavorite = isFavorite)
+                    }
+            }.launchIn(viewModelScope)
+
         }
     }
 
     // ==================== 즐겨찾기 관련 ====================
 
-    // 즐겨찾기 상태 관찰
-    fun observeFavoriteStatus(movieCd: String) {
-        getFavoriteMovieStatusUseCase(movieCd = movieCd)
-            .onEach { isFavorite ->
-                _uiState.update { state ->
-                    state.copy(isFavorite = isFavorite)
-                }
-            }
-            .launchIn(viewModelScope)
-    }
-
     // 즐겨찾기 토글
-    fun toggleFavorite(movieCd: String, movieTitle: String, posterUrl: String?) {
+    fun toggleFavorite(position: Int) {
+        val page = _uiState.value.pages.getOrNull(position) ?: return
         viewModelScope.launch {
             try {
-                if (_uiState.value.isFavorite) {
-                    removeFavoriteMovieUseCase(movieCd = movieCd)
+                if (page.isFavorite) {
+                    removeFavoriteMovieUseCase(movieCd = page.movieCd)
                 } else {
                     addFavoriteMovieUseCase(
-                        movie =
-                            MovieWithPoster(
-                                movie = Movie.notFavoriteMovie(movieCd, movieTitle),
-                                posterUrl = posterUrl
-                            )
+                        movie = MovieWithPoster(
+                            movie = Movie.notFavoriteMovie(
+                                movieCd = page.movieCd,
+                                movieTitle = page.movieTitle
+                            ),
+                            posterUrl = page.posterUrl
+                        )
                     )
                 }
             } catch (e: Exception) {
@@ -107,15 +113,15 @@ class MovieDetailViewModel @Inject constructor(
 
     // ==================== UI 상태 관리 ====================
 
-    private fun showLoading() {
-        _uiState.update { state ->
-            state.copy(isLoading = true, error = null)
-        }
+    private fun handleError(message: String) {
+        _uiEffect.trySend(MovieDetailUiEffect.ShowError(message = message))
     }
 
-    private fun handleError(message: String) {
+    private fun updatePageState(position: Int, updater: (MovieDetailPageItemUiState) -> MovieDetailPageItemUiState) {
         _uiState.update { state ->
-            state.copy(isLoading = false, error = message)
+            val newPages = state.pages.toMutableList()
+            newPages[position] = updater(newPages[position])
+            state.copy(pages = newPages)
         }
     }
 }

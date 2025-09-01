@@ -8,15 +8,17 @@ import com.jg.moviesearch.core.domain.usecase.GetSearchMovieUseCase
 import com.jg.moviesearch.core.domain.usecase.RemoveFavoriteMovieUseCase
 import com.jg.moviesearch.core.model.MovieResult
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
+import com.jg.moviesearch.ui.model.MovieUiEffect
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -35,6 +37,9 @@ class MovieViewModel @Inject constructor(
     // 실시간 검색을 위한 검색어
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _uiEffect = Channel<MovieUiEffect>()
+    val uiEffect = _uiEffect.receiveAsFlow()
 
     // 현재 검색 쿼리
     private var currentSearchQuery: String = ""
@@ -168,17 +173,10 @@ class MovieViewModel @Inject constructor(
 
     // ==================== UI 상태 관리 ====================
 
-    // 에러 메시지 표시
-    fun clearError() {
-        _uiState.update { state ->
-            state.copy(error = null)
-        }
-    }
-
     // 로딩 상태 표시
     private fun showLoading() {
         _uiState.update { state ->
-            state.copy(isLoading = true, error = null)
+            state.copy(isLoading = true)
         }
     }
 
@@ -187,10 +185,11 @@ class MovieViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 isLoading = if (!isLoadMore) false else state.isLoading,
-                isLoadingMore = if (isLoadMore) false else state.isLoadingMore,
-                error = "$prefix: $message"
+                isLoadingMore = if (isLoadMore) false else state.isLoadingMore
             )
         }
+
+        _uiEffect.trySend(MovieUiEffect.ShowError("$prefix: $message"))
     }
 
     // 검색 결과 초기화
@@ -199,8 +198,7 @@ class MovieViewModel @Inject constructor(
             it.copy(
                 movies = emptyList(),
                 processedMovies = emptyList(),
-                isLoading = false,
-                error = null
+                isLoading = false
             )
         }
     }
@@ -217,6 +215,11 @@ class MovieViewModel @Inject constructor(
         }
     }
 
+    // 검색 영화 클릭
+    fun onMovieClick(movies: List<MovieWithPoster>, movie: MovieWithPoster) {
+        _uiEffect.trySend(MovieUiEffect.NavigateToDetail(movies, movies.indexOf(movie)))
+    }
+
     // ==================== 검색 결과 처리 함수들 ====================
 
     // 검색 성공 처리
@@ -227,7 +230,6 @@ class MovieViewModel @Inject constructor(
                 movies = movies,
                 processedMovies = processedMovies,
                 isLoading = false,
-                error = null,
                 hasMoreData = movies.size >= 10
             )
         }
@@ -240,10 +242,10 @@ class MovieViewModel @Inject constructor(
                 movies = emptyList(),
                 processedMovies = emptyList(),
                 isLoading = false,
-                error = "검색 결과가 없습니다",
                 hasMoreData = false
             )
         }
+        _uiEffect.trySend(MovieUiEffect.ShowError("검색 결과가 없습니다"))
     }
 
     // ==================== 무한 스크롤 결과 처리 함수들 ====================
@@ -293,7 +295,6 @@ data class MovieUiState(
     val processedMovies: List<MovieDisplayItem> = emptyList(), // 추가
     val isLoading: Boolean = false,
     val isLoadingMore: Boolean = false,
-    val error: String? = null,
     val favoriteMovies: Set<String> = emptySet(),
     val hasMoreData: Boolean = true,
     val currentPage: Int = 1

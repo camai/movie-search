@@ -1,20 +1,21 @@
 package com.jg.moviesearch.ui.activity
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.jg.moviesearch.R
 import com.jg.moviesearch.core.model.domain.MovieDetail
 import com.jg.moviesearch.databinding.ActivityMovieDetailPageBinding
-import com.jg.moviesearch.ui.model.MovieDetailAction
 import com.jg.moviesearch.ui.model.MovieDetailPageItemUiState
 import com.jg.moviesearch.ui.utils.MoviePageDiffCallback
 
 class MovieDetailPagerAdapter(
-    private val onAction: (MovieDetailAction) -> Unit
-) : RecyclerView.Adapter<MovieDetailPagerAdapter.MovieDetailViewHolder>() {
+    private val onFavoriteClick: (position: Int) -> Unit
+) : ListAdapter<MovieDetailPageItemUiState, MovieDetailPagerAdapter.MovieDetailViewHolder>(MoviePageDiffCallback()) {
 
     private var items: List<MovieDetailPageItemUiState> = emptyList()
 
@@ -25,52 +26,24 @@ class MovieDetailPagerAdapter(
         return MovieDetailViewHolder(binding)
     }
 
-    fun setInitialData(
-        movieCds: List<String>,
-        movieTitles: List<String>,
-        posterUrls: List<String?>
-    ) {
-        val initialItems = movieCds.mapIndexed { index, movieCd ->
-            MovieDetailPageItemUiState(
-                movieCd = movieCd,
-                movieTitle = movieTitles.getOrNull(index) ?: "",
-                posterUrl = posterUrls.getOrNull(index),
-                movieDetail = MovieDetail.EMPTY
-            )
-        }
-        updateItems(initialItems)
-    }
-
-    fun updateItems(newItems: List<MovieDetailPageItemUiState>) {
-        val diffCallback = MoviePageDiffCallback(items, newItems)
-        val diffResult = DiffUtil.calculateDiff(diffCallback)
-
-        items = newItems
-        diffResult.dispatchUpdatesTo(this)
-    }
-
-    fun updateMovieDetail(position: Int, movieDetail: MovieDetail) {
-        if (position in items.indices) {
-            val newItems = items.toMutableList().apply {
-                this[position] = this[position].copy(movieDetail = movieDetail)
-            }
-            updateItems(newItems)
-        }
-    }
-
     override fun onBindViewHolder(holder: MovieDetailViewHolder, position: Int) {
-        val item = items.getOrNull(position) ?: run {
-            // 로그로 문제 상황 확인
-            println("Warning: Invalid position $position, items size: ${items.size}")
-            return
-        }
-
+        val item = getItem(position)
         holder.bind(item)
     }
 
     inner class MovieDetailViewHolder(private val binding: ActivityMovieDetailPageBinding) : RecyclerView.ViewHolder(binding.root) {
+        init {
+            binding.btnFavorite.setOnClickListener {
+                if (adapterPosition != RecyclerView.NO_POSITION) {
+                   onFavoriteClick(adapterPosition)
+                }
+            }
+        }
+
         fun bind(item: MovieDetailPageItemUiState) {
             binding.tvMovieTitle.text = item.movieTitle
+
+            binding.progressBar.visibility = if (item.isLoading) View.VISIBLE else View.GONE
 
             item.posterUrl?.let { url ->
                 if (url.isNotEmpty()) {
@@ -85,15 +58,12 @@ class MovieDetailPagerAdapter(
                 binding.ivPoster.setImageResource(R.drawable.ic_movie_placeholder)
             }
 
-            updateMovieDetailUI(movieDetail = item.movieDetail)
-
-            binding.btnFavorite.setOnClickListener {
-                onAction(MovieDetailAction.ToggleFavorite(
-                    movieCd = item.movieCd,
-                    movieTitle = item.movieTitle,
-                    posterUrl = item.posterUrl
-                ))
+            item.movieDetail?.let { detail ->
+                updateMovieDetailUI(movieDetail = detail)
             }
+
+            binding.btnFavorite.setImageResource(
+                if (item.isFavorite) R.drawable.ic_star_filled else R.drawable.ic_star_outline)
         }
 
         private fun updateMovieDetailUI(movieDetail: MovieDetail) {

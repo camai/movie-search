@@ -3,6 +3,7 @@ package com.jg.moviesearch.ui.activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
@@ -12,12 +13,14 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.jg.moviesearch.core.model.domain.MovieDetail
 import com.jg.moviesearch.databinding.ActivityMovieDetailBinding
 import com.jg.moviesearch.ui.model.MovieData
-import com.jg.moviesearch.ui.model.MovieDetailAction
 import com.jg.moviesearch.ui.model.MovieDetailUiState
 import com.jg.moviesearch.ui.viewmodel.MovieDetailViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import androidx.viewpager2.widget.ViewPager2
+import com.jg.moviesearch.ui.model.MovieDetailUiEffect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 @AndroidEntryPoint
 class MovieDetailActivity : AppCompatActivity() {
@@ -36,6 +39,11 @@ class MovieDetailActivity : AppCompatActivity() {
         viewModel = ViewModelProvider(this)[MovieDetailViewModel::class.java]
 
         extractIntentData()
+
+        if (savedInstanceState == null) {
+            viewModel.initializePages(movie = movieData, initialPosition = currentPosition)
+        }
+
         setupViewPager()
         setupClickListeners()
         initializeStateObservation()
@@ -55,15 +63,9 @@ class MovieDetailActivity : AppCompatActivity() {
     private fun setupViewPager() {
         if (movieData == MovieData.EMPTY) return
 
-        pagerAdapter = MovieDetailPagerAdapter { action ->
-            handlePagerAction(action)
+        pagerAdapter = MovieDetailPagerAdapter { position ->
+            viewModel.toggleFavorite(position = position)
         }
-
-        pagerAdapter.setInitialData(
-            movieCds = movieData.movieCds,
-            movieTitles = movieData.movieTitles,
-            posterUrls = movieData.posterUrls
-        )
 
         binding.viewPager.apply {
             adapter = pagerAdapter
@@ -72,42 +74,14 @@ class MovieDetailActivity : AppCompatActivity() {
             registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
                     super.onPageSelected(position)
-                    currentPosition = position // 현재 위치 업데이트
-
-                    val movieCd = movieData.movieCds.getOrNull(position)
-                    movieCd?.let {
-                        viewModel.getMovieDetail(movieCd = it)
-                        viewModel.observeFavoriteStatus(movieCd = it)
-                    }
+                    viewModel.loadPageDetails(position = position)
                 }
             })
         }
     }
 
     private fun loadInitialMovieDetail() {
-        val initialMovieCd = movieData.movieCds.getOrNull(currentPosition)
-        initialMovieCd?.let {
-            viewModel.getMovieDetail(movieCd = it)
-            viewModel.observeFavoriteStatus(movieCd = it)
-        }
-    }
-
-    private fun handlePagerAction(action: MovieDetailAction) {
-        when (action) {
-            is MovieDetailAction.GetMovieDetail ->{
-                viewModel.getMovieDetail(action.movieCd)
-            }
-
-            is MovieDetailAction.ObserveFavoriteStatus ->
-                viewModel.observeFavoriteStatus(action.movieCd)
-
-            is MovieDetailAction.ToggleFavorite ->
-                viewModel.toggleFavorite(
-                    movieCd = action.movieCd,
-                    movieTitle = action.movieTitle,
-                    posterUrl = action.posterUrl
-                )
-        }
+        viewModel.initializePages(movieData, currentPosition)
     }
 
     private fun setupClickListeners() {
@@ -120,38 +94,34 @@ class MovieDetailActivity : AppCompatActivity() {
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(state = Lifecycle.State.STARTED) {
                 launch {
-                    viewModel.uiState.collect { uiState ->
-                        updateUiState(uiState = uiState)
-                    }
+                    viewModel.uiState
+                        .map { it.pages } // 페이지 리스트가 변경 될 때만
+                        .distinctUntilChanged()
+                        .collect { uiState ->
+                            pagerAdapter.submitList(uiState)
+                        }
                 }
 
                 launch {
-                    viewModel.movieDetail.collect { movieDetail ->
-                        updateMovieDetail(movieDetail = movieDetail)
+                    viewModel.uiState
+                        .map { it.currentPosition } // 현재 위치가 변결될 때만
+                        .distinctUntilChanged()
+                        .collect { position ->
+                            binding.viewPager.setCurrentItem(position, false)
+                        }
+                }
+
+                launch {
+                    viewModel.uiEffect.collect { uiEffect ->
+                        when (uiEffect) {
+                            is MovieDetailUiEffect.ShowError -> {
+                                Toast.makeText(this@MovieDetailActivity, uiEffect.message, Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 }
             }
         }
-    }
-
-    private fun updateUiState(uiState: MovieDetailUiState) {
-        if (uiState == MovieDetailUiState.EMPTY) return
-
-        showErrorIfNeeded(error = uiState.error)
-    }
-
-    private fun showErrorIfNeeded(error: String?) {
-        error?.let {
-            Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun updateMovieDetail(movieDetail: MovieDetail) {
-        val currentPosition = binding.viewPager.currentItem
-        (binding.viewPager.adapter as? MovieDetailPagerAdapter)?.updateMovieDetail(
-            position = currentPosition,
-            movieDetail = movieDetail
-        )
     }
 
     companion object {

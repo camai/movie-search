@@ -44,6 +44,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
+import com.jg.moviesearch.ui.model.MovieUiEffect
 import com.jg.moviesearch.ui.model.SearchMovieAction
 import com.jg.moviesearch.ui.viewmodel.MovieDisplayItem
 import com.jg.moviesearch.ui.viewmodel.MovieViewModel
@@ -62,13 +63,20 @@ fun SearchMovieRoute(
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let { error ->
-            snackbarHostState.showSnackbar(
-                message = error,
-                duration = SnackbarDuration.Short
-            )
-            viewModel.clearError()
+    LaunchedEffect(viewModel.uiEffect) {
+        viewModel.uiEffect.collect { effect ->
+            when (effect) {
+                is MovieUiEffect.ShowError -> {
+                    snackbarHostState.showSnackbar(
+                        message = effect.message,
+                        duration = SnackbarDuration.Short
+                    )
+                }
+
+                is MovieUiEffect.NavigateToDetail -> {
+                    onMovieClickWithList(effect.movieList, effect.position)
+                }
+            }
         }
     }
 
@@ -94,11 +102,10 @@ fun SearchMovieRoute(
             when (action) {
                 is SearchMovieAction.UpdateSearchQuery -> viewModel.updateSearchQuery(query = action.query)
                 is SearchMovieAction.ToggleFavorite -> viewModel.toggleFavorite(movieWithPoster = action.movie)
-                is SearchMovieAction.MovieClick -> {
-                    val originalIndex = action.movieList.indexOf(action.movie)
-                    onMovieClickWithList(action.movieList, originalIndex)
-                }
-                SearchMovieAction.ClearError -> viewModel.clearError()
+                is SearchMovieAction.MovieClick -> viewModel.onMovieClick(
+                    movies = action.movieList,
+                    movie = action.movie
+                )
             }
         }
     )
@@ -106,7 +113,7 @@ fun SearchMovieRoute(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchMovieScreen(
+internal fun SearchMovieScreen(
     modifier: Modifier = Modifier,
     uiState: MovieUiState,
     searchQuery: String,

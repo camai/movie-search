@@ -6,13 +6,7 @@ data class MovieDetailPageItemUiState(
     val movieCd: String,
     val movieTitle: String,
     val posterUrl: String?,
-    val movieDetail: MovieDetail = MovieDetail.EMPTY
-) {
-    companion object {
-        val EMPTY = MovieDetailPageItemUiState(
-            movieCd = "",
-            movieTitle = "",
-            posterUrl = null
-        )
-    }
-}
+    val movieDetail: MovieDetail? = null,
+    val isLoading: Boolean = false,
+    val isFavorite: Boolean = false
+)
