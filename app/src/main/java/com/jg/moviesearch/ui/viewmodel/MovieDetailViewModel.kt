@@ -3,7 +3,6 @@ package com.jg.moviesearch.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jg.moviesearch.core.domain.repository.MovieRepository
-import com.jg.moviesearch.core.domain.usecase.AddFavoriteMovieUseCase
 import com.jg.moviesearch.core.domain.usecase.GetMovieDetailWithFavoriteUseCase
 import com.jg.moviesearch.core.model.domain.Movie
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
@@ -25,7 +24,6 @@ import javax.inject.Inject
 @HiltViewModel
 class MovieDetailViewModel @Inject constructor(
     private val movieRepository: MovieRepository,
-    private val addFavoriteMovieUseCase: AddFavoriteMovieUseCase,
     private val getMovieDetailWithFavoriteUseCase: GetMovieDetailWithFavoriteUseCase
 ) : ViewModel() {
 
@@ -63,7 +61,7 @@ class MovieDetailViewModel @Inject constructor(
             updatePageState(position) { it.copy(isLoading = true) }
 
             runCatching {
-                getMovieDetailWithFavoriteUseCase(page.movieCd).first()
+                getMovieDetailWithFavoriteUseCase(page.movieCd)
             }.onSuccess { result ->
                 updatePageState(position) {
                     it.copy(
@@ -89,7 +87,7 @@ class MovieDetailViewModel @Inject constructor(
                 if (page.isFavorite) {
                     movieRepository.removeFavoriteMovie(movieCd = page.movieCd)
                 } else {
-                    addFavoriteMovieUseCase(
+                    movieRepository.addFavoriteMovie(
                         movie = MovieWithPoster(
                             movie = Movie.fromFavorite(
                                 movieCd = page.movieCd,

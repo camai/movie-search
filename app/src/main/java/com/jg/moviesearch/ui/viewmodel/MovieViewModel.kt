@@ -3,8 +3,6 @@ package com.jg.moviesearch.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jg.moviesearch.core.domain.repository.MovieRepository
-import com.jg.moviesearch.core.domain.usecase.AddFavoriteMovieUseCase
-import com.jg.moviesearch.core.domain.usecase.GetAllFavoriteMoviesUseCase
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.ui.model.MovieUiEffect
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +17,6 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -28,8 +25,6 @@ import javax.inject.Inject
 @HiltViewModel
 class MovieViewModel @Inject constructor(
     private val movieRepository: MovieRepository,
-    private val getAllFavoriteMoviesUseCase: GetAllFavoriteMoviesUseCase,
-    private val addFavoriteMovieUseCase: AddFavoriteMovieUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MovieUiState())
@@ -64,6 +59,7 @@ class MovieViewModel @Inject constructor(
                 resetSearchState()
                 showLoading()
             }
+            //  새로운 query가 들어오면 이전의 이 블록 실행은 자동으로 취소
             .flatMapLatest { query ->
                 movieRepository.searchMoviesWithPoster(query.trim(), 1)
                     .catch {
@@ -161,7 +157,7 @@ class MovieViewModel @Inject constructor(
                 if (isFavorite) {
                     movieRepository.removeFavoriteMovie(movieCd = movieWithPoster.movie.movieCd)
                 } else {
-                    addFavoriteMovieUseCase(movie = movieWithPoster)
+                    movieRepository.addFavoriteMovie(movie = movieWithPoster)
                 }
             }.onFailure {
                 handleError(message = it.message ?: "Unknown error", prefix = "즐겨찾기 처리 중 오류")
