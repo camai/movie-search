@@ -14,11 +14,7 @@ interface GetAllFavoriteMoviesUseCase {
 class GetAllFavoriteMoviesUseCaseImpl @Inject constructor(
     private val favoriteMovieRepository: FavoriteMovieRepository
 ): GetAllFavoriteMoviesUseCase {
-    
-    /**
-     * 모든 즐겨찾기 영화 목록 조회
-     * @return 즐겨찾기 영화 목록 Flow
-     */
+
     override operator fun invoke(): Flow<List<MovieWithPoster>> {
         return favoriteMovieRepository.getAllFavoriteMovies()
     }

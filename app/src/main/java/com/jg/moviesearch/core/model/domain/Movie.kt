@@ -24,24 +24,29 @@ data class Movie(
     val showCnt: String
 ) {
     companion object {
-        fun notFavoriteMovie(movieCd: String, movieTitle: String) = Movie(
-            rank = "0",
-            rankInten = "0",
-            rankOldAndNew = "NEW",
-            movieCd = movieCd,
-            movieNm = movieTitle,
-            openDt = "",
-            salesAmt = "0",
-            salesShare = "0.0",
-            salesInten = "0",
-            salesChange = "0",
-            salesAcc = "0",
-            audiCnt = "0",
-            audiInten = "0",
-            audiChange = "0",
-            audiAcc = "0",
-            scrnCnt = "0",
-            showCnt = "0"
-        )
+        /**
+         * 즐겨찾기 정보 등 최소한의 정보로 Movie 객체를 생성하는 팩토리 함수
+         */
+        fun fromFavorite(movieCd: String, movieNm: String, openDt: String): Movie {
+            return Movie(
+                rank = "0",
+                rankInten = "0",
+                rankOldAndNew = "NEW",
+                movieCd = movieCd,
+                movieNm = movieNm,
+                openDt = openDt,
+                salesAmt = "0",
+                salesShare = "0.0",
+                salesInten = "0",
+                salesChange = "0",
+                salesAcc = "0",
+                audiCnt = "0",
+                audiInten = "0",
+                audiChange = "0",
+                audiAcc = "0",
+                scrnCnt = "0",
+                showCnt = "0"
+            )
+        }
     }
 }

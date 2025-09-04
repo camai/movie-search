@@ -1,8 +1,6 @@
 package com.jg.moviesearch.core.data.di
 
-import com.jg.moviesearch.core.data.repository.FavoriteMovieRepositoryImpl
 import com.jg.moviesearch.core.data.repository.MovieRepositoryImpl
-import com.jg.moviesearch.core.domain.repository.FavoriteMovieRepository
 import com.jg.moviesearch.core.domain.repository.MovieRepository
 import dagger.Binds
 import dagger.Module
@@ -17,9 +15,4 @@ abstract class RepositoryModule {
     abstract fun bindMovieRepository(
         movieRepositoryImpl: MovieRepositoryImpl
     ): MovieRepository
-
-    @Binds
-    abstract fun bindFavoriteMovieRepository(
-        favoriteMovieRepository: FavoriteMovieRepositoryImpl
-    ): FavoriteMovieRepository
 }

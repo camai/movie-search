@@ -13,11 +13,7 @@ interface AddFavoriteMovieUseCase {
 class AddFavoriteMovieUseCaseImpl @Inject constructor(
     private val favoriteMovieRepository: FavoriteMovieRepository
 ): AddFavoriteMovieUseCase {
-    
-    /**
-     * 영화를 즐겨찾기에 추가
-     * @param movie 추가할 영화 정보
-     */
+
     override suspend operator fun invoke(movie: MovieWithPoster) {
         favoriteMovieRepository.addFavoriteMovie(movie)
     }

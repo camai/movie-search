@@ -2,11 +2,9 @@ package com.jg.moviesearch.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jg.moviesearch.core.domain.repository.MovieRepository
 import com.jg.moviesearch.core.domain.usecase.AddFavoriteMovieUseCase
 import com.jg.moviesearch.core.domain.usecase.GetFavoriteMovieStatusUseCase
-import com.jg.moviesearch.core.domain.usecase.GetMovieDetailUseCase
-import com.jg.moviesearch.core.domain.usecase.RemoveFavoriteMovieUseCase
-import com.jg.moviesearch.core.model.MovieResult
 import com.jg.moviesearch.core.model.domain.Movie
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.ui.model.MovieData
@@ -18,6 +16,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -27,9 +26,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MovieDetailViewModel @Inject constructor(
-    private val getMovieDetailUseCase: GetMovieDetailUseCase,
+    private val movieRepository: MovieRepository,
     private val addFavoriteMovieUseCase: AddFavoriteMovieUseCase,
-    private val removeFavoriteMovieUseCase: RemoveFavoriteMovieUseCase,
     private val getFavoriteMovieStatusUseCase: GetFavoriteMovieStatusUseCase
 ) : ViewModel() {
 
@@ -64,25 +62,24 @@ class MovieDetailViewModel @Inject constructor(
         if (page.movieDetail != null || page.isLoading) return
 
         viewModelScope.launch {
-            updatePageState(position = position) {
-                it.copy(isLoading = true)
+            updatePageState(position) { it.copy(isLoading = true) }
+
+            runCatching {
+                movieRepository.getMovieDetail(movieCd = page.movieCd).first()
+            }.onSuccess { detail ->
+                updatePageState(position) { it.copy(isLoading = false, movieDetail = detail) }
+            }.onFailure { e ->
+                handleError("영화 상세 정보 로딩 실패: ${e.message}")
+                updatePageState(position) { it.copy(isLoading = false) }
             }
-
-            getMovieDetailUseCase(movieCd = page.movieCd).collect { result ->
-                val detail = if (result is MovieResult.Success) result.data else null
-                updatePageState(position = position) {
-                    it.copy(isLoading = false, movieDetail = detail)
-                }
-            }
-
-            getFavoriteMovieStatusUseCase(movieCd = page.movieCd)
-                .onEach { isFavorite ->
-                    updatePageState(position = position) {
-                        it.copy(isFavorite = isFavorite)
-                    }
-            }.launchIn(viewModelScope)
-
         }
+
+        getFavoriteMovieStatusUseCase(movieCd = page.movieCd)
+            .onEach { isFavorite ->
+                updatePageState(position) {
+                    it.copy(isFavorite = isFavorite)
+                }
+            }.launchIn(viewModelScope)
     }
 
     // ==================== 즐겨찾기 관련 ====================
@@ -91,22 +88,23 @@ class MovieDetailViewModel @Inject constructor(
     fun toggleFavorite(position: Int) {
         val page = _uiState.value.pages.getOrNull(position) ?: return
         viewModelScope.launch {
-            try {
+            runCatching {
                 if (page.isFavorite) {
-                    removeFavoriteMovieUseCase(movieCd = page.movieCd)
+                    movieRepository.removeFavoriteMovie(movieCd = page.movieCd)
                 } else {
                     addFavoriteMovieUseCase(
                         movie = MovieWithPoster(
-                            movie = Movie.notFavoriteMovie(
+                            movie = Movie.fromFavorite(
                                 movieCd = page.movieCd,
-                                movieTitle = page.movieTitle
+                                movieNm = page.movieTitle,
+                                openDt = page.movieDetail?.openDt ?: ""
                             ),
                             posterUrl = page.posterUrl
                         )
                     )
                 }
-            } catch (e: Exception) {
-                handleError(message = "즐겨찾기 처리 중 오류가 발생했습니다: ${e.message}")
+            }.onFailure {
+                handleError(message = "즐겨찾기 처리 중 오류가 발생했습니다: ${it.message}")
             }
         }
     }

@@ -2,11 +2,9 @@ package com.jg.moviesearch.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jg.moviesearch.core.domain.repository.MovieRepository
 import com.jg.moviesearch.core.domain.usecase.AddFavoriteMovieUseCase
 import com.jg.moviesearch.core.domain.usecase.GetAllFavoriteMoviesUseCase
-import com.jg.moviesearch.core.domain.usecase.GetSearchMovieUseCase
-import com.jg.moviesearch.core.domain.usecase.RemoveFavoriteMovieUseCase
-import com.jg.moviesearch.core.model.MovieResult
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.ui.model.MovieUiEffect
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,10 +12,12 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -25,10 +25,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MovieViewModel @Inject constructor(
-    private val getSearchMovieUseCase: GetSearchMovieUseCase,
+    private val movieRepository: MovieRepository,
     private val getAllFavoriteMoviesUseCase: GetAllFavoriteMoviesUseCase,
-    private val addFavoriteMovieUseCase: AddFavoriteMovieUseCase,
-    private val removeFavoriteMovieUseCase: RemoveFavoriteMovieUseCase
+    private val addFavoriteMovieUseCase: AddFavoriteMovieUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MovieUiState())
@@ -78,17 +77,19 @@ class MovieViewModel @Inject constructor(
         currentSearchQuery = query
         resetSearchState()
 
-        getSearchMovieUseCase(query, 1)
-            .onEach { result ->
-                when (result) {
-                    is MovieResult.Loading -> showLoading()
-                    is MovieResult.Success -> handleSearchSuccess(movies = result.data)
-                    is MovieResult.Error -> handleError(
-                        message = result.message,
-                        prefix = "영화 검색 실패"
-                    )
-
-                    is MovieResult.Empty -> handleSearchEmpty()
+        movieRepository.searchMoviesWithPoster(query, 1)
+            .onStart { showLoading() }
+            .catch { e ->
+                handleError(
+                    message = e.message ?: "Unknown error",
+                    prefix = "영화 검색 실패"
+                )
+            }
+            .onEach { movies ->
+                if (movies.isEmpty()) {
+                    handleSearchEmpty()
+                } else {
+                    handleSearchSuccess(movies = movies)
                 }
             }
             .launchIn(viewModelScope)
@@ -113,27 +114,24 @@ class MovieViewModel @Inject constructor(
             return
         }
 
-        _uiState.update { state ->
-            state.copy(isLoadingMore = true)
-        }
+        showLoading()
 
-        getSearchMovieUseCase(currentSearchQuery, currentState.currentPage + 1)
-            .onEach { result ->
-                when (result) {
-                    is MovieResult.Success -> handleLoadMoreSuccess(
-                        newMovies = result.data,
+        movieRepository.searchMoviesWithPoster(currentSearchQuery, currentState.currentPage + 1)
+            .catch { e ->
+                handleError(
+                    message = e.message ?: "Unknown error",
+                    prefix = "추가 데이터 로드 실패",
+                    isLoadMore = true
+                )
+            }
+            .onEach { newMovies ->
+                if (newMovies.isEmpty()) {
+                    handleLoadMoreEmpty()
+                } else {
+                    handleLoadMoreSuccess(
+                        newMovies = newMovies,
                         currentPage = currentState.currentPage
                     )
-
-                    is MovieResult.Error -> handleError(
-                        message = result.message,
-                        prefix = "추가 데이터 로드 실패",
-                        isLoadMore = true
-                    )
-
-                    is MovieResult.Empty -> handleLoadMoreEmpty()
-                    is MovieResult.Loading -> { /* 이미 isLoadingMore로 처리 중 */
-                    }
                 }
             }
             .launchIn(viewModelScope)
@@ -143,7 +141,7 @@ class MovieViewModel @Inject constructor(
 
     // 즐겨찾기 상태 관찰
     private fun observeFavoriteMovies() {
-        getAllFavoriteMoviesUseCase()
+        movieRepository.getAllFavoriteMovies()
             .onEach { favoriteMovies ->
                 val favoriteMovieCds = favoriteMovies.map { it.movie.movieCd }.toSet()
                 _uiState.update { state ->
@@ -156,17 +154,17 @@ class MovieViewModel @Inject constructor(
     // 즐겨찾기
     fun toggleFavorite(movieWithPoster: MovieWithPoster) {
         viewModelScope.launch {
-            try {
+            runCatching {
                 val isFavorite =
                     _uiState.value.favoriteMovies.contains(movieWithPoster.movie.movieCd)
 
                 if (isFavorite) {
-                    removeFavoriteMovieUseCase(movieCd = movieWithPoster.movie.movieCd)
+                    movieRepository.removeFavoriteMovie(movieCd = movieWithPoster.movie.movieCd)
                 } else {
                     addFavoriteMovieUseCase(movie = movieWithPoster)
                 }
-            } catch (e: Exception) {
-                handleError(message = e.message ?: "Unknown error", prefix = "즐겨찾기 처리 중 오류")
+            }.onFailure {
+                handleError(message = it.message ?: "Unknown error", prefix = "즐겨찾기 처리 중 오류")
             }
         }
     }
@@ -314,4 +312,4 @@ sealed class MovieDisplayType {
             return if ((index % 6) < 3) Poster else Text
         }
     }
-} 
+}
