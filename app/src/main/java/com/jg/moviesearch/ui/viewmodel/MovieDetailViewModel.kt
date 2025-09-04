@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jg.moviesearch.core.domain.repository.MovieRepository
 import com.jg.moviesearch.core.domain.usecase.AddFavoriteMovieUseCase
-import com.jg.moviesearch.core.domain.usecase.GetFavoriteMovieStatusUseCase
+import com.jg.moviesearch.core.domain.usecase.GetMovieDetailWithFavoriteUseCase
 import com.jg.moviesearch.core.model.domain.Movie
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.ui.model.MovieData
@@ -17,8 +17,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -28,7 +26,7 @@ import javax.inject.Inject
 class MovieDetailViewModel @Inject constructor(
     private val movieRepository: MovieRepository,
     private val addFavoriteMovieUseCase: AddFavoriteMovieUseCase,
-    private val getFavoriteMovieStatusUseCase: GetFavoriteMovieStatusUseCase
+    private val getMovieDetailWithFavoriteUseCase: GetMovieDetailWithFavoriteUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MovieDetailUiState.EMPTY)
@@ -65,21 +63,20 @@ class MovieDetailViewModel @Inject constructor(
             updatePageState(position) { it.copy(isLoading = true) }
 
             runCatching {
-                movieRepository.getMovieDetail(movieCd = page.movieCd).first()
-            }.onSuccess { detail ->
-                updatePageState(position) { it.copy(isLoading = false, movieDetail = detail) }
+                getMovieDetailWithFavoriteUseCase(page.movieCd).first()
+            }.onSuccess { result ->
+                updatePageState(position) {
+                    it.copy(
+                        isLoading = false,
+                        movieDetail = result.movieDetail,
+                        isFavorite = result.isFavorite
+                    )
+                }
             }.onFailure { e ->
                 handleError("영화 상세 정보 로딩 실패: ${e.message}")
                 updatePageState(position) { it.copy(isLoading = false) }
             }
         }
-
-        getFavoriteMovieStatusUseCase(movieCd = page.movieCd)
-            .onEach { isFavorite ->
-                updatePageState(position) {
-                    it.copy(isFavorite = isFavorite)
-                }
-            }.launchIn(viewModelScope)
     }
 
     // ==================== 즐겨찾기 관련 ====================
@@ -115,7 +112,10 @@ class MovieDetailViewModel @Inject constructor(
         _uiEffect.trySend(MovieDetailUiEffect.ShowError(message = message))
     }
 
-    private fun updatePageState(position: Int, updater: (MovieDetailPageItemUiState) -> MovieDetailPageItemUiState) {
+    private fun updatePageState(
+        position: Int,
+        updater: (MovieDetailPageItemUiState) -> MovieDetailPageItemUiState
+    ) {
         _uiState.update { state ->
             val newPages = state.pages.toMutableList()
             newPages[position] = updater(newPages[position])

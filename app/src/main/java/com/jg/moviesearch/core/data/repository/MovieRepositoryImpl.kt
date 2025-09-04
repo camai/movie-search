@@ -10,6 +10,9 @@ import com.jg.moviesearch.core.model.domain.MovieDetail
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.core.model.mapper.MovieMapper.toDomainModel
 import com.jg.moviesearch.core.network.api.TmdbApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -70,21 +73,30 @@ class MovieRepositoryImpl @Inject constructor(
         val movieResponse = movieNetworkSource.searchMovieList(movieName, page)
         if (movieResponse.isSuccessful) {
             val movieItems = movieResponse.body()?.movieListResult?.movieList ?: emptyList()
+            
+            if (movieItems.isEmpty()) {
+                emit(emptyList())
+                return@flow
+            }
 
-            val moviesWithPoster = movieItems.map { item ->
-                val movie = item.toDomainModel()
-                val posterUrl = try {
-                    val posterResponse = movieNetworkSource.searchMoviePoster(movie.movieNm)
-                    if (posterResponse.isSuccessful) {
-                        val results = posterResponse.body()?.results
-                        results?.firstOrNull()?.posterPath?.let { "${TmdbApi.IMAGE_BASE_URL}$it" }
-                    } else {
-                        null
+            val moviesWithPoster = coroutineScope {
+                movieItems.map { item ->
+                    async {
+                        val movie = item.toDomainModel()
+                        val posterUrl = try {
+                            val posterResponse = movieNetworkSource.searchMoviePoster(movie.movieNm)
+                            if (posterResponse.isSuccessful) {
+                                val results = posterResponse.body()?.results
+                                results?.firstOrNull()?.posterPath?.let { "${TmdbApi.IMAGE_BASE_URL}$it" }
+                            } else {
+                                null
+                            }
+                        } catch (e: Exception) {
+                            null // 포스터 조회 실패 시 null 처리
+                        }
+                        MovieWithPoster(movie = movie, posterUrl = posterUrl)
                     }
-                } catch (e: Exception) {
-                    null // 포스터 조회 실패 시 null 처리
-                }
-                MovieWithPoster(movie = movie, posterUrl = posterUrl)
+                }.awaitAll()
             }
 
             val sortedMovies = sortMoviesByOpenDate(moviesWithPoster)

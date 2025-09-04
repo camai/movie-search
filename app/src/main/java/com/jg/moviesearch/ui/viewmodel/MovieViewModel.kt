@@ -8,6 +8,7 @@ import com.jg.moviesearch.core.domain.usecase.GetAllFavoriteMoviesUseCase
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.ui.model.MovieUiEffect
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
@@ -52,12 +54,31 @@ class MovieViewModel @Inject constructor(
     // ==================== 검색 관련 함수들 ====================
 
     // 실시간 검색 설정
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun setupRealTimeSearch() {
         _searchQuery
             .debounce(300)
-            .filter { it.trim().length >= 2 }
+            .filter { it.trim().isNotEmpty() }
             .onEach { query ->
-                searchMoviesInternal(query = query.trim())
+                currentSearchQuery = query.trim()
+                resetSearchState()
+                showLoading()
+            }
+            .flatMapLatest { query ->
+                movieRepository.searchMoviesWithPoster(query.trim(), 1)
+                    .catch {
+                        handleError(
+                            message = it.message ?: "Unknown error",
+                            prefix = "영화 검색 실패"
+                        )
+                    }
+            }
+            .onEach {
+                if (it.isEmpty()) {
+                    handleSearchEmpty()
+                } else {
+                    handleSearchSuccess(movies = it)
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -70,29 +91,6 @@ class MovieViewModel @Inject constructor(
         } else if (query.trim().isEmpty()) {
             clearSearchResults()
         }
-    }
-
-    // 내부 검색
-    private fun searchMoviesInternal(query: String) {
-        currentSearchQuery = query
-        resetSearchState()
-
-        movieRepository.searchMoviesWithPoster(query, 1)
-            .onStart { showLoading() }
-            .catch { e ->
-                handleError(
-                    message = e.message ?: "Unknown error",
-                    prefix = "영화 검색 실패"
-                )
-            }
-            .onEach { movies ->
-                if (movies.isEmpty()) {
-                    handleSearchEmpty()
-                } else {
-                    handleSearchSuccess(movies = movies)
-                }
-            }
-            .launchIn(viewModelScope)
     }
 
     // ==================== 무한 스크롤 관련 함수들 ====================
@@ -114,7 +112,9 @@ class MovieViewModel @Inject constructor(
             return
         }
 
-        showLoading()
+        _uiState.update { state ->
+            state.copy(isLoadingMore = true)
+        }
 
         movieRepository.searchMoviesWithPoster(currentSearchQuery, currentState.currentPage + 1)
             .catch { e ->

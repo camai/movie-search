@@ -3,7 +3,6 @@ package com.jg.moviesearch.ui.activity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
@@ -15,14 +14,18 @@ import com.jg.moviesearch.ui.utils.MoviePageDiffCallback
 
 class MovieDetailPagerAdapter(
     private val onFavoriteClick: (position: Int) -> Unit
-) : ListAdapter<MovieDetailPageItemUiState, MovieDetailPagerAdapter.MovieDetailViewHolder>(MoviePageDiffCallback()) {
+) : ListAdapter<MovieDetailPageItemUiState, MovieDetailPagerAdapter.MovieDetailViewHolder>(
+    MoviePageDiffCallback()
+) {
 
-    private var items: List<MovieDetailPageItemUiState> = emptyList()
-
-    override fun getItemCount(): Int = items.size
+    override fun getItemCount(): Int = currentList.size
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MovieDetailViewHolder {
-        val binding = ActivityMovieDetailPageBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding = ActivityMovieDetailPageBinding.inflate(
+            LayoutInflater.from(parent.context),
+            parent,
+            false
+        )
         return MovieDetailViewHolder(binding)
     }
 
@@ -31,11 +34,12 @@ class MovieDetailPagerAdapter(
         holder.bind(item)
     }
 
-    inner class MovieDetailViewHolder(private val binding: ActivityMovieDetailPageBinding) : RecyclerView.ViewHolder(binding.root) {
+    inner class MovieDetailViewHolder(private val binding: ActivityMovieDetailPageBinding) :
+        RecyclerView.ViewHolder(binding.root) {
         init {
             binding.btnFavorite.setOnClickListener {
                 if (adapterPosition != RecyclerView.NO_POSITION) {
-                   onFavoriteClick(adapterPosition)
+                    onFavoriteClick(adapterPosition)
                 }
             }
         }
@@ -63,7 +67,8 @@ class MovieDetailPagerAdapter(
             }
 
             binding.btnFavorite.setImageResource(
-                if (item.isFavorite) R.drawable.ic_star_filled else R.drawable.ic_star_outline)
+                if (item.isFavorite) R.drawable.ic_star_filled else R.drawable.ic_star_outline
+            )
         }
 
         private fun updateMovieDetailUI(movieDetail: MovieDetail) {
