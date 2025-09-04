@@ -1,7 +1,7 @@
 package com.jg.moviesearch.core.domain.usecase
 
+import com.jg.moviesearch.core.domain.repository.MovieRepository
 import kotlinx.coroutines.flow.Flow
-import com.jg.moviesearch.core.domain.repository.FavoriteMovieRepository
 import javax.inject.Inject
 
 /**
@@ -13,10 +13,10 @@ interface GetFavoriteMovieStatusUseCase {
 }
 
 class GetFavoriteMovieStatusUseCaseImpl @Inject constructor(
-    private val favoriteMovieRepository: FavoriteMovieRepository
-): GetFavoriteMovieStatusUseCase {
+    private val movieRepository: MovieRepository
+) : GetFavoriteMovieStatusUseCase {
 
     override operator fun invoke(movieCd: String): Flow<Boolean> {
-        return favoriteMovieRepository.isFavoriteMovie(movieCd)
+        return movieRepository.isFavoriteMovie(movieCd)
     }
 } 
