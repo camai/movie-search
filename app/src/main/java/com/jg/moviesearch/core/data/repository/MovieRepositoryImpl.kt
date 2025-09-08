@@ -99,7 +99,7 @@ class MovieRepositoryImpl @Inject constructor(
                 }.awaitAll()
             }
 
-            val sortedMovies = sortMoviesByOpenDate(moviesWithPoster)
+            val sortedMovies = sortMoviesByOpenDate(movies = moviesWithPoster)
             emit(sortedMovies)
         } else {
             throw Exception("영화 검색 API 호출 실패: ${movieResponse.code()}")

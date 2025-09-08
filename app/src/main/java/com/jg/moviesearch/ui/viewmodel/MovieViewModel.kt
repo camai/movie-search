@@ -61,7 +61,7 @@ class MovieViewModel @Inject constructor(
             }
             //  새로운 query가 들어오면 이전의 이 블록 실행은 자동으로 취소
             .flatMapLatest { query ->
-                movieRepository.searchMoviesWithPoster(query.trim(), 1)
+                movieRepository.searchMoviesWithPoster(movieName = query.trim(), page = 1)
                     .catch {
                         handleError(
                             message = it.message ?: "Unknown error",
