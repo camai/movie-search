@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.room)
     kotlin("kapt")
     id("androidx.navigation.safeargs.kotlin")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -90,12 +91,10 @@ dependencies {
 
     // Retrofit & Network
     implementation(libs.retrofit)
-    implementation(libs.retrofit.moshi)
+    implementation(libs.retrofitKotlinxSerialization)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
-    implementation(libs.moshi)
-    implementation(libs.moshi.kotlin)
-    ksp(libs.moshi.codegen)
+    implementation(libs.kotlinx.serialization.json)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)

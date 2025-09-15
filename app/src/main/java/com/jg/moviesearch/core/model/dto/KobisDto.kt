@@ -1,187 +1,187 @@
 package com.jg.moviesearch.core.model.dto
 
-import com.squareup.moshi.Json
-import com.squareup.moshi.JsonClass
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 // 박스오피스 API 응답 DTO
-@JsonClass(generateAdapter = true)
+@Serializable
 data class BoxOfficeResponseDto(
-    @Json(name = "boxOfficeResult")
+    @SerialName("boxOfficeResult")
     val boxOfficeResult: BoxOfficeResultDto
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class BoxOfficeResultDto(
-    @Json(name = "boxofficeType")
+    @SerialName("boxofficeType")
     val boxOfficeType: String,
-    @Json(name = "showRange")
+    @SerialName("showRange")
     val showRange: String,
-    @Json(name = "dailyBoxOfficeList")
+    @SerialName("dailyBoxOfficeList")
     val dailyBoxOfficeList: List<MovieDto>
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class MovieDto(
-    @Json(name = "rnum")
+    @SerialName("rnum")
     val rank: String,
-    @Json(name = "rankInten")
+    @SerialName("rankInten")
     val rankInten: String,
-    @Json(name = "rankOldAndNew")
+    @SerialName("rankOldAndNew")
     val rankOldAndNew: String,
-    @Json(name = "movieCd")
+    @SerialName("movieCd")
     val movieCd: String,
-    @Json(name = "movieNm")
+    @SerialName("movieNm")
     val movieNm: String,
-    @Json(name = "openDt")
+    @SerialName("openDt")
     val openDt: String,
-    @Json(name = "salesAmt")
+    @SerialName("salesAmt")
     val salesAmt: String,
-    @Json(name = "salesShare")
+    @SerialName("salesShare")
     val salesShare: String,
-    @Json(name = "salesInten")
+    @SerialName("salesInten")
     val salesInten: String,
-    @Json(name = "salesChange")
+    @SerialName("salesChange")
     val salesChange: String,
-    @Json(name = "salesAcc")
+    @SerialName("salesAcc")
     val salesAcc: String,
-    @Json(name = "audiCnt")
+    @SerialName("audiCnt")
     val audiCnt: String,
-    @Json(name = "audiInten")
+    @SerialName("audiInten")
     val audiInten: String,
-    @Json(name = "audiChange")
+    @SerialName("audiChange")
     val audiChange: String,
-    @Json(name = "audiAcc")
+    @SerialName("audiAcc")
     val audiAcc: String,
-    @Json(name = "scrnCnt")
+    @SerialName("scrnCnt")
     val scrnCnt: String,
-    @Json(name = "showCnt")
+    @SerialName("showCnt")
     val showCnt: String
 )
 
 // 영화 상세정보 API 응답 DTO
-@JsonClass(generateAdapter = true)
+@Serializable
 data class MovieDetailResponseDto(
-    @Json(name = "movieInfoResult")
+    @SerialName("movieInfoResult")
     val movieInfoResult: MovieInfoResultDto
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class MovieInfoResultDto(
-    @Json(name = "movieInfo")
+    @SerialName("movieInfo")
     val movieInfo: MovieDetailDto
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class MovieDetailDto(
-    @Json(name = "movieCd")
+    @SerialName("movieCd")
     val movieCd: String,
-    @Json(name = "movieNm")
+    @SerialName("movieNm")
     val movieNm: String,
-    @Json(name = "movieNmEn")
+    @SerialName("movieNmEn")
     val movieNmEn: String,
-    @Json(name = "prdtYear")
+    @SerialName("prdtYear")
     val prdtYear: String,
-    @Json(name = "showTm")
+    @SerialName("showTm")
     val showTm: String,
-    @Json(name = "openDt")
+    @SerialName("openDt")
     val openDt: String,
-    @Json(name = "prdtStatNm")
+    @SerialName("prdtStatNm")
     val prdtStatNm: String,
-    @Json(name = "typeNm")
+    @SerialName("typeNm")
     val typeNm: String,
-    @Json(name = "nations")
+    @SerialName("nations")
     val nations: List<NationDto>,
-    @Json(name = "genres")
+    @SerialName("genres")
     val genres: List<GenreDto>,
-    @Json(name = "directors")
+    @SerialName("directors")
     val directors: List<DirectorDto>,
-    @Json(name = "actors")
+    @SerialName("actors")
     val actors: List<ActorDto>
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class NationDto(
-    @Json(name = "nationNm")
+    @SerialName("nationNm")
     val nationNm: String
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class GenreDto(
-    @Json(name = "genreNm")
+    @SerialName("genreNm")
     val genreNm: String
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class DirectorDto(
-    @Json(name = "peopleNm")
+    @SerialName("peopleNm")
     val peopleNm: String
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class ActorDto(
-    @Json(name = "peopleNm")
+    @SerialName("peopleNm")
     val peopleNm: String,
-    @Json(name = "cast")
+    @SerialName("cast")
     val cast: String
 )
 
 // 영화 목록조회 API 응답 DTO
-@JsonClass(generateAdapter = true)
+@Serializable
 data class MovieListResponseDto(
-    @Json(name = "movieListResult")
+    @SerialName("movieListResult")
     val movieListResult: MovieListResultDto
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class MovieListResultDto(
-    @Json(name = "totCnt")
+    @SerialName("totCnt")
     val totCnt: Int,
-    @Json(name = "source")
+    @SerialName("source")
     val source: String,
-    @Json(name = "movieList")
+    @SerialName("movieList")
     val movieList: List<MovieListItemDto>
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class MovieListItemDto(
-    @Json(name = "movieCd")
+    @SerialName("movieCd")
     val movieCd: String,
-    @Json(name = "movieNm")
+    @SerialName("movieNm")
     val movieNm: String,
-    @Json(name = "movieNmEn")
+    @SerialName("movieNmEn")
     val movieNmEn: String? = null,
-    @Json(name = "prdtYear")
+    @SerialName("prdtYear")
     val prdtYear: String? = null,
-    @Json(name = "openDt")
+    @SerialName("openDt")
     val openDt: String? = null,
-    @Json(name = "typeNm")
+    @SerialName("typeNm")
     val typeNm: String? = null,
-    @Json(name = "prdtStatNm")
+    @SerialName("prdtStatNm")
     val prdtStatNm: String? = null,
-    @Json(name = "nationAlt")
+    @SerialName("nationAlt")
     val nationAlt: String? = null,
-    @Json(name = "genreAlt")
+    @SerialName("genreAlt")
     val genreAlt: String? = null,
-    @Json(name = "repNationNm")
+    @SerialName("repNationNm")
     val repNationNm: String? = null,
-    @Json(name = "repGenreNm")
+    @SerialName("repGenreNm")
     val repGenreNm: String? = null,
-    @Json(name = "directors")
+    @SerialName("directors")
     val directors: List<MovieDirectorDto>? = null,
-    @Json(name = "companys")
+    @SerialName("companys")
     val companys: List<MovieCompanyDto>? = null
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class MovieDirectorDto(
-    @Json(name = "peopleNm")
+    @SerialName("peopleNm")
     val peopleNm: String
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class MovieCompanyDto(
-    @Json(name = "companyCd")
+    @SerialName("companyCd")
     val companyCd: String,
-    @Json(name = "companyNm")
+    @SerialName("companyNm")
     val companyNm: String
 ) 
