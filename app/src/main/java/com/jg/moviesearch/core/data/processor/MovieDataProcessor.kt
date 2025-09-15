@@ -3,7 +3,7 @@ package com.jg.moviesearch.core.data.processor
 import com.jg.moviesearch.core.model.domain.Movie
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.core.model.dto.TmdbMovieSearchResponseDto
-import com.jg.moviesearch.core.network.api.TmdbApi
+import com.jg.moviesearch.core.network.config.NetworkConfig
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -12,7 +12,9 @@ import javax.inject.Singleton
  * Android Layer Architecture - 복잡한 데이터 조합 로직 분리
  */
 @Singleton  
-class MovieDataProcessor @Inject constructor() {
+class MovieDataProcessor @Inject constructor(
+    private val networkConfig: NetworkConfig
+) {
     
     /**
      * 영화 데이터와 포스터 URL을 결합
@@ -57,7 +59,7 @@ class MovieDataProcessor @Inject constructor() {
         
         val posterPath = results.firstOrNull()?.posterPath
         return if (!posterPath.isNullOrEmpty()) {
-            "${TmdbApi.IMAGE_BASE_URL}$posterPath"
+            "${networkConfig.tmdbImageBaseUrl}$posterPath"
         } else {
             null
         }

@@ -2,6 +2,7 @@ package com.jg.moviesearch.core.network.di
 
 import com.jg.moviesearch.core.network.api.KobisApi
 import com.jg.moviesearch.core.network.api.TmdbApi
+import com.jg.moviesearch.core.network.config.NetworkConfig
 import com.jg.moviesearch.core.network.di.RetrofitNetwork.createJson
 import com.jg.moviesearch.core.network.di.RetrofitNetwork.createRetrofit
 import dagger.Module
@@ -37,9 +38,10 @@ object RetrofitModule {
     @KobisRetrofit
     fun provideKobisRetrofit(
         okHttpClient: OkHttpClient,
-        json: Json
+        json: Json,
+        networkConfig: NetworkConfig
     ): Retrofit {
-        return createRetrofit(baseUrl = KobisApi.BASE_URL, client = okHttpClient, json = json)
+        return createRetrofit(baseUrl = networkConfig.kobisBaseUrl, client = okHttpClient, json = json)
     }
     
     @Provides
@@ -47,9 +49,10 @@ object RetrofitModule {
     @TmdbRetrofit
     fun provideTmdbRetrofit(
         okHttpClient: OkHttpClient,
-        json: Json
+        json: Json,
+        networkConfig: NetworkConfig
     ): Retrofit {
-        return createRetrofit(baseUrl = TmdbApi.BASE_URL, client = okHttpClient, json = json)
+        return createRetrofit(baseUrl = networkConfig.tmdbBaseUrl, client = okHttpClient, json = json)
     }
     
     @Provides

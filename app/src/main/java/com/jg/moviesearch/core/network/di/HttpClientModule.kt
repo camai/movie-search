@@ -1,7 +1,8 @@
 package com.jg.moviesearch.core.network.di
 
 import android.content.Context
-import com.jg.moviesearch.core.data.cache.CacheInterceptor
+import com.jg.moviesearch.core.network.interceptor.CacheInterceptor
+import com.jg.moviesearch.core.network.config.NetworkConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -59,5 +60,11 @@ object HttpClientModule {
             .readTimeout(READ_TIMEOUT_SEC, TimeUnit.SECONDS)
             .writeTimeout(WRITE_TIMEOUT_SEC, TimeUnit.SECONDS)
             .build()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideNetworkConfig(): NetworkConfig {
+        return NetworkConfig()
     }
 }

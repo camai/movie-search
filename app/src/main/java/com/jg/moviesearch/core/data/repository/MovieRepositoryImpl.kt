@@ -9,7 +9,7 @@ import com.jg.moviesearch.core.model.domain.Movie
 import com.jg.moviesearch.core.model.domain.MovieDetail
 import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.core.model.mapper.MovieMapper.toDomainModel
-import com.jg.moviesearch.core.network.api.TmdbApi
+import com.jg.moviesearch.core.network.config.NetworkConfig
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -21,7 +21,8 @@ import javax.inject.Inject
 class MovieRepositoryImpl @Inject constructor(
     private val movieNetworkSource: MovieNetworkSource,
     private val favoriteDatabaseSource: FavoriteDatabaseSource,
-    private val movieDataProcessor: MovieDataProcessor
+    private val movieDataProcessor: MovieDataProcessor,
+    private val networkConfig: NetworkConfig
 ) : MovieRepository {
 
     // Movie Search APIs
@@ -57,7 +58,7 @@ class MovieRepositoryImpl @Inject constructor(
             if (!results.isNullOrEmpty()) {
                 val posterPath = results[0].posterPath
                 if (!posterPath.isNullOrEmpty()) {
-                    emit("${TmdbApi.IMAGE_BASE_URL}$posterPath")
+                    emit("${networkConfig.tmdbImageBaseUrl}$posterPath")
                 } else {
                     throw Exception("포스터 이미지가 없습니다")
                 }
@@ -87,7 +88,7 @@ class MovieRepositoryImpl @Inject constructor(
                             val posterResponse = movieNetworkSource.searchMoviePoster(movie.movieNm)
                             if (posterResponse.isSuccessful) {
                                 val results = posterResponse.body()?.results
-                                results?.firstOrNull()?.posterPath?.let { "${TmdbApi.IMAGE_BASE_URL}$it" }
+                                results?.firstOrNull()?.posterPath?.let { "${networkConfig.tmdbImageBaseUrl}$it" }
                             } else {
                                 null
                             }

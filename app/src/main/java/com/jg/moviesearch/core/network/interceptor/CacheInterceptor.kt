@@ -1,4 +1,4 @@
-package com.jg.moviesearch.core.data.cache
+package com.jg.moviesearch.core.network.interceptor
 
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -44,4 +44,4 @@ class CacheInterceptor : Interceptor {
             .header("Cache-Control", cacheControl)
             .build()
     }
-} 
+}

@@ -40,6 +40,12 @@ android {
         
         buildConfigField("String", "KOBIS_API_KEY", "\"$kobisApiKey\"")
         buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
+        
+        // Network Base URLs
+        buildConfigField("String", "KOBIS_BASE_URL", "\"https://www.kobis.or.kr/kobisopenapi/webservice/rest/\"")
+        buildConfigField("String", "TMDB_BASE_URL", "\"https://api.themoviedb.org/3/\"")
+        buildConfigField("String", "TMDB_IMAGE_BASE_URL", "\"https://image.tmdb.org/t/p/w500\"")
+        buildConfigField("String", "TMDB_BACKDROP_BASE_URL", "\"https://image.tmdb.org/t/p/w780\"")
     }
 
     buildTypes {

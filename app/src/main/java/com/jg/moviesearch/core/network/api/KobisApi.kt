@@ -44,7 +44,4 @@ interface KobisApi {
         @Query("openEndDt") openEndDt: String = ""
     ): Response<MovieListResponseDto>
     
-    companion object {
-        const val BASE_URL = "https://www.kobis.or.kr/kobisopenapi/webservice/rest/"
-    }
 } 
