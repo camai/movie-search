@@ -48,7 +48,6 @@
 
 ### **로컬 데이터베이스**
 - **Room** - 로컬 데이터베이스
-- **SQLite** - 내부 데이터베이스 엔진
 - **KSP** - Kotlin Symbol Processing
 
 ### **비동기 처리**
