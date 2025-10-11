@@ -7,7 +7,6 @@ import com.jg.moviesearch.core.model.domain.MovieWithPoster
 import com.jg.moviesearch.ui.model.MovieUiEffect
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,7 +16,9 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -34,8 +35,8 @@ class MovieViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    private val _uiEffect = Channel<MovieUiEffect>()
-    val uiEffect = _uiEffect.receiveAsFlow()
+    private val _uiEffect = MutableSharedFlow<MovieUiEffect>()
+    val uiEffect: SharedFlow<MovieUiEffect> = _uiEffect.asSharedFlow()
 
     // 현재 검색 쿼리
     private var currentSearchQuery: String = ""
@@ -183,7 +184,9 @@ class MovieViewModel @Inject constructor(
             )
         }
 
-        _uiEffect.trySend(MovieUiEffect.ShowError("$prefix: $message"))
+        viewModelScope.launch {
+            _uiEffect.emit(MovieUiEffect.ShowError("$prefix: $message"))
+        }
     }
 
     // 검색 결과 초기화
@@ -211,7 +214,9 @@ class MovieViewModel @Inject constructor(
 
     // 검색 영화 클릭
     fun onMovieClick(movies: List<MovieWithPoster>, movie: MovieWithPoster) {
-        _uiEffect.trySend(MovieUiEffect.NavigateToDetail(movies, movies.indexOf(movie)))
+        viewModelScope.launch {
+            _uiEffect.emit(MovieUiEffect.NavigateToDetail(movies, movies.indexOf(movie)))
+        }
     }
 
     // ==================== 검색 결과 처리 함수들 ====================
@@ -219,6 +224,7 @@ class MovieViewModel @Inject constructor(
     // 검색 성공 처리
     private fun handleSearchSuccess(movies: List<MovieWithPoster>) {
         val processedMovies = processMoviesForDisplay(movies = movies)
+
         _uiState.update { state ->
             state.copy(
                 movies = movies,
@@ -239,7 +245,9 @@ class MovieViewModel @Inject constructor(
                 hasMoreData = false
             )
         }
-        _uiEffect.trySend(MovieUiEffect.ShowError("검색 결과가 없습니다"))
+        viewModelScope.launch {
+            _uiEffect.emit(MovieUiEffect.ShowError("검색 결과가 없습니다"))
+        }
     }
 
     // ==================== 무한 스크롤 결과 처리 함수들 ====================
